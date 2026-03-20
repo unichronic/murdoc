@@ -1,0 +1,33 @@
+.hero {
+  padding: 3rem 0 2rem;
+  text-align: center;
+}
+
+.hero-inner {
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hero-pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-soft);
+  margin-bottom: 1rem;
+}
+
+.hero-title {
+  font-size: clamp(2.5rem, 6vw, 3.6rem);
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0 0 1rem;
+}
+
+.hero-lead {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
