@@ -1,0 +1,50 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+.container {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding-inline: 1.5rem;
+}
+
+.section {
+  padding: 3rem 0;
+}
+
+.section-alt {
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.section-header {
+  margin-bottom: 1.5rem;
+}
+
+.section-header h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.9rem;
+  color: var(--text);
+}
+
+.section-header p {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text-soft);
+}
+
+.accent {
+  color: var(--lime);
+}
+
+.accent-cyan {
+  color: var(--cyan);
+}

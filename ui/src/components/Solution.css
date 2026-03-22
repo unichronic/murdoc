@@ -1,0 +1,8 @@
+.card-accent {
+  border-color: rgba(34, 232, 220, 0.25);
+  background: var(--cyan-soft);
+}
+
+.card-accent h3 {
+  color: var(--cyan);
+}

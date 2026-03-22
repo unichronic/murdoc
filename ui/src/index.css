@@ -1,0 +1,40 @@
+/* Giskard-style: dark teal, lime green, cyan */
+:root {
+  --bg: #0d2827;
+  --bg-header: #103332;
+  --bg-elevated: #143836;
+  --lime: #76F516;
+  --cyan: #22E8DC;
+  --cyan-soft: rgba(34, 232, 220, 0.15);
+  --lime-soft: rgba(118, 245, 22, 0.12);
+  --text: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.85);
+  --text-soft: rgba(255, 255, 255, 0.65);
+  --border: rgba(255, 255, 255, 0.12);
+  --radius: 20px;
+  --radius-lg: 20px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 19px;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
