@@ -1,0 +1,70 @@
+.prompt-section {
+  padding: 2rem 0 3rem;
+}
+
+.prompt-inner {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.prompt-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-soft);
+  margin-bottom: 0.5rem;
+}
+
+.prompt-input {
+  width: 100%;
+  padding: 1rem 1.1rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  resize: vertical;
+  min-height: 120px;
+}
+
+.prompt-input::placeholder {
+  color: var(--text-soft);
+}
+
+.prompt-input:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px var(--cyan-soft);
+}
+
+.prompt-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.btn-change-scenario {
+  padding: 0.6rem 1.25rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--cyan);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.btn-change-scenario:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.btn-change-scenario:active {
+  transform: translateY(0);
+}
