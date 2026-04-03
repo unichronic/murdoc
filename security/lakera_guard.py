@@ -281,3 +281,4 @@ def get_scan_summary(result: LakeraResult) -> str:
         )
 
     return f"[Lakera] ✅ Clean — Request ID: {result.request_uuid or 'N/A'}"
+# reviewed
