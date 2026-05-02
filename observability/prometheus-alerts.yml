@@ -1,0 +1,91 @@
+groups:
+  - name: agentvault-gateway
+    rules:
+      - alert: AgentVaultGatewayDown
+        expr: up{job="agentvault-gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: agentvault-gateway
+        annotations:
+          summary: AgentVault gateway metrics endpoint is unreachable
+          description: Prometheus cannot scrape the AgentVault gateway at {{ $labels.instance }}.
+
+      - alert: AgentVaultHighErrorRate
+        expr: |
+          (
+            sum(rate(agentvault_http_requests_total{route="/api/process",status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(agentvault_http_requests_total{route="/api/process"}[5m])), 0.001)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: agentvault-gateway
+        annotations:
+          summary: AgentVault gateway 5xx rate is elevated
+          description: More than 5% of /api/process requests have returned 5xx for 5 minutes.
+
+      - alert: AgentVaultHighLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(agentvault_http_request_duration_seconds_bucket{route="/api/process"}[5m]))
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: agentvault-gateway
+        annotations:
+          summary: AgentVault gateway p95 latency is high
+          description: p95 latency for /api/process has exceeded 2 seconds for 5 minutes.
+
+      - alert: AgentVaultSecurityLayerErrors
+        expr: sum(rate(agentvault_security_errors_total[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: agentvault-gateway
+        annotations:
+          summary: AgentVault security layer errors detected
+          description: One or more guardrail layers are emitting errors.
+
+      - alert: AgentVaultPromptInjectionSpike
+        expr: sum(increase(agentvault_security_decisions_total{decision="block",reason="prompt_injection"}[10m])) > 20
+        for: 0m
+        labels:
+          severity: warning
+          service: agentvault-gateway
+        annotations:
+          summary: Prompt injection block spike
+          description: More than 20 prompt injection attempts were blocked in the last 10 minutes.
+
+      - alert: AgentVaultPiiScrubSpike
+        expr: sum(increase(agentvault_security_decisions_total{decision="scrub",reason="pii_detected"}[10m])) > 20
+        for: 0m
+        labels:
+          severity: info
+          service: agentvault-gateway
+        annotations:
+          summary: PII scrub spike
+          description: More than 20 PII scrub events occurred in the last 10 minutes.
+
+      - alert: AgentVaultLatencyBudgetExceeded
+        expr: sum(increase(agentvault_latency_budget_exceeded_total[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: agentvault-gateway
+        annotations:
+          summary: AgentVault route latency budget exceeded
+          description: One or more route profiles exceeded their configured latency budget.
+
+      - alert: AgentVaultDecisionBlocksSpike
+        expr: sum(increase(agentvault_gateway_decisions_total{decision="block"}[10m])) > 20
+        for: 0m
+        labels:
+          severity: warning
+          service: agentvault-gateway
+        annotations:
+          summary: AgentVault final block decisions spiked
+          description: More than 20 final gateway block decisions occurred in the last 10 minutes.

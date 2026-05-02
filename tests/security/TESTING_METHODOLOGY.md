@@ -16,7 +16,7 @@
 - Test specific input/output scenarios
 - Validate error handling and edge cases
 
-**Real-world alignment:** ⭐⭐⭐ (Medium)
+**Real-world alignment:** HighHighHigh (Medium)
 - Validates logic but not actual service integration
 - Mock responses may not match real API behavior exactly
 
@@ -27,7 +27,7 @@
 
 **Why:**
 - Verify layers work together correctly
-- Test execution order (OPA → Lakera → Provider → Presidio)
+- Test execution order (OPA -> Lakera -> Provider -> Presidio)
 - Catch integration bugs (e.g., context passing, error propagation)
 
 **How:**
@@ -35,7 +35,7 @@
 - Send requests through complete pipeline
 - Verify correct layer blocks/allows requests
 
-**Real-world alignment:** ⭐⭐⭐⭐ (High)
+**Real-world alignment:** HighHighHighHigh (High)
 - Tests actual plugin pipeline
 - Still uses mocks for external services (Lakera/Presidio)
 
@@ -54,7 +54,7 @@
 - Send curl requests with various payloads
 - Check HTTP status codes and response bodies
 
-**Real-world alignment:** ⭐⭐⭐⭐⭐ (Very High)
+**Real-world alignment:** HighHighHighHighHigh (Very High)
 - Exact same flow as production usage
 - Tests HTTP serialization, middleware chain, error handling
 - Only difference: may use mock services instead of real Lakera/Presidio
@@ -65,31 +65,31 @@
 
 ### Layer 1: OPA Policy Evaluation
 ```
-Unit Test → Mock Rego policy file
-Integration Test → Real OPA engine with test policies
-E2E Test → Full HTTP request through OPA middleware
+Unit Test -> Mock Rego policy file
+Integration Test -> Real OPA engine with test policies
+E2E Test -> Full HTTP request through OPA middleware
 ```
 
 **Real-world simulation:**
-- ✅ Policy evaluation logic (exact match)
-- ✅ Regex pattern matching (exact match)
-- ✅ Request blocking behavior (exact match)
-- ⚠️ Policy file loading (test files, not production policies)
+- Yes Policy evaluation logic (exact match)
+- Yes Regex pattern matching (exact match)
+- Yes Request blocking behavior (exact match)
+- Partial Policy file loading (test files, not production policies)
 
 ---
 
 ### Layer 2: Lakera Guard
 ```
-Unit Test → Mock HTTP server returning fake detection results
-Integration Test → Mock Lakera API in pipeline
-E2E Test → Real Lakera API calls (if API key provided)
+Unit Test -> Mock HTTP server returning fake detection results
+Integration Test -> Mock Lakera API in pipeline
+E2E Test -> Real Lakera API calls (if API key provided)
 ```
 
 **Real-world simulation:**
-- ✅ Request/response format (exact match)
-- ✅ Confidence threshold logic (exact match)
-- ⚠️ Detection accuracy (mock has simple keyword matching, real API uses ML)
-- ⚠️ Network latency (mock is instant, real API has ~100-500ms latency)
+- Yes Request/response format (exact match)
+- Yes Confidence threshold logic (exact match)
+- Partial Detection accuracy (mock has simple keyword matching, real API uses ML)
+- Partial Network latency (mock is instant, real API has ~100-500ms latency)
 
 **To test with real Lakera:**
 ```bash
@@ -101,16 +101,16 @@ go test ./tests/security/lakera_test.go -v -tags=real_api
 
 ### Layer 3: Presidio
 ```
-Unit Test → Mock HTTP server returning fake PII detections
-Integration Test → Mock Presidio service in pipeline
-E2E Test → Real Presidio service (if running)
+Unit Test -> Mock HTTP server returning fake PII detections
+Integration Test -> Mock Presidio service in pipeline
+E2E Test -> Real Presidio service (if running)
 ```
 
 **Real-world simulation:**
-- ✅ Request/response format (exact match)
-- ✅ Redaction logic (exact match)
-- ⚠️ Detection accuracy (mock has simple regex, real Presidio uses NER models)
-- ⚠️ Entity types (mock supports subset, real Presidio has 50+ types)
+- Yes Request/response format (exact match)
+- Yes Redaction logic (exact match)
+- Partial Detection accuracy (mock has simple regex, real Presidio uses NER models)
+- Partial Entity types (mock supports subset, real Presidio has 50+ types)
 
 **To test with real Presidio:**
 ```bash
@@ -128,14 +128,14 @@ go test ./tests/security/presidio_test.go -v -tags=real_api
 
 | Scenario | Unit | Integration | E2E | Real-world Match |
 |----------|------|-------------|-----|------------------|
-| Clean request passes | ✅ | ✅ | ✅ | 100% |
-| OPA blocks PII | ✅ | ✅ | ✅ | 100% |
-| Lakera blocks injection | ✅ | ✅ | ✅ | 90% (mock uses keywords, real uses ML) |
-| Presidio redacts output | ✅ | ✅ | ✅ | 85% (mock uses regex, real uses NER) |
-| Multiple violations | ❌ | ✅ | ✅ | 100% |
-| Service unavailable | ✅ | ❌ | ✅ | 100% |
-| Network timeout | ❌ | ❌ | ⚠️ | 50% (requires chaos testing) |
-| High load (1000 RPS) | ❌ | ❌ | ❌ | 0% (requires load testing) |
+| Clean request passes | Yes | Yes | Yes | 100% |
+| OPA blocks PII | Yes | Yes | Yes | 100% |
+| Lakera blocks injection | Yes | Yes | Yes | 90% (mock uses keywords, real uses ML) |
+| Presidio redacts output | Yes | Yes | Yes | 85% (mock uses regex, real uses NER) |
+| Multiple violations | No | Yes | Yes | 100% |
+| Service unavailable | Yes | No | Yes | 100% |
+| Network timeout | No | No | Partial | 50% (requires chaos testing) |
+| High load / bombardment | Partial | Partial | Yes | 75% (local attack lab supports concurrent soak tests) |
 
 ---
 
@@ -149,18 +149,24 @@ go test ./tests/security/presidio_test.go -v -tags=real_api
    - **Solution:** Run periodic tests against real APIs with labeled dataset
 
 2. **Performance Under Load**
-   - Tests use single requests, not concurrent load
-   - **Solution:** Add load tests with `go test -bench` or k6
+   - Python attack lab now supports concurrent soak runs against the live gateway and vulnerable target
+   - **Remaining gap:** no latency SLO assertions under production-scale throughput yet
 
-3. **Network Failures**
+3. **Agent-to-Agent Coverage**
+   - The Python attack lab can run a live coordinator + peer-agent target with HTTP A2A delegation
+   - The Python attack lab can also run an Agno `Team(mode=route)` target with real Agno member delegation
+   - Cisco A2A Scanner is executed against the live coordinator endpoint in multi-agent lab mode
+   - Local HTTP is allowed only as a development scanner finding; card, endpoint, and header regressions fail the lab
+
+4. **Network Failures**
    - Tests don't simulate timeouts, retries, circuit breakers
    - **Solution:** Add chaos engineering tests (toxiproxy)
 
-4. **Production Policies**
+5. **Production Policies**
    - Tests use simple test policies, not real production rules
-   - **Solution:** Copy production policies to `testdata/` and test against them
+   - **Solution:** Copy production policies to `tests/fixtures/` and test against them
 
-5. **Multi-turn Conversations**
+6. **Multi-turn Conversations**
    - Tests use single messages, not conversation history
    - **Solution:** Add tests with multi-message context
 
@@ -211,6 +217,15 @@ done
 - Detects service degradation
 - Real production traffic
 
+### Local Adversarial Lab
+```bash
+python3 tests/tools/attack_lab.py --mode compare --profile extended --iterations 3 --concurrency 6 --include-stateful
+python3 tests/tools/attack_lab.py --mode gateway --profile extended --duration-seconds 30 --concurrency 8 --include-stateful
+```
+- Starts the vulnerable backend and the gateway together
+- Exercises prompt injection, exfiltration, code execution, context poisoning, privilege abuse, and persisted-memory attacks
+- Supports concurrent bombardment and timed soak runs
+
 ---
 
 ## Improving Real-world Alignment
@@ -256,11 +271,11 @@ interactions:
 ## Summary
 
 **Current testing approach:**
-- ✅ Validates logic and integration correctly
-- ✅ Fast and deterministic
-- ✅ Easy to debug
-- ⚠️ Uses mocks instead of real ML models
-- ⚠️ Doesn't test performance or chaos scenarios
+- Yes Validates logic and integration correctly
+- Yes Fast and deterministic
+- Yes Easy to debug
+- Partial Uses mocks instead of real ML models
+- Partial Doesn't test performance or chaos scenarios
 
 **Real-world alignment: 85%**
 

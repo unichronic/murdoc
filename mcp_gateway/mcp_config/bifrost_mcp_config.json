@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "notionApi": {
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": {
+        "NOTION_TOKEN": "ntn_****"
+      }
+    }
+  },
+  "_comment": "This is the Bifrost Gateway MCP configuration. The gateway sits between the user/AI client and the Notion MCP server, applying security layers (Lakera Guard, OPA, Presidio) to all requests and responses."
+}

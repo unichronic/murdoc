@@ -9,7 +9,7 @@ import (
 )
 
 func TestOPAMiddleware_AllowedRequest(t *testing.T) {
-	middleware, err := opa.NewOPAMiddleware("../../testdata/policies/allow_all.rego")
+	middleware, err := opa.NewOPAMiddleware("../fixtures/policies/allow_all.rego")
 	if err != nil {
 		t.Fatalf("Failed to create OPA middleware: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestOPAMiddleware_AllowedRequest(t *testing.T) {
 }
 
 func TestOPAMiddleware_BlockedRequest(t *testing.T) {
-	middleware, err := opa.NewOPAMiddleware("../../testdata/policies/block_sensitive.rego")
+	middleware, err := opa.NewOPAMiddleware("../fixtures/policies/block_sensitive.rego")
 	if err != nil {
 		t.Fatalf("Failed to create OPA middleware: %v", err)
 	}

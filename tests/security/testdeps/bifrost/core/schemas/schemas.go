@@ -16,9 +16,13 @@ type AgentVaultChatRequest struct {
 	Messages []Message
 }
 
+type BifrostChatRequest = AgentVaultChatRequest
+
 type AgentVaultChatResponse struct {
 	Choices []Choice
 }
+
+type BifrostChatResponse = AgentVaultChatResponse
 
 type PluginConfig struct {
 	Name    string
@@ -30,6 +34,8 @@ type AgentVaultConfig struct {
 	Plugins []PluginConfig
 }
 
+type BifrostConfig = AgentVaultConfig
+
 type AgentVaultContext struct {
 	context.Context
 	Index int
@@ -40,6 +46,10 @@ func NewAgentVaultContext(ctx context.Context, index int) *AgentVaultContext {
 		ctx = context.Background()
 	}
 	return &AgentVaultContext{Context: ctx, Index: index}
+}
+
+func NewBifrostContext(ctx context.Context, index int) *AgentVaultContext {
+	return NewAgentVaultContext(ctx, index)
 }
 
 type LLMPluginShortCircuit struct {

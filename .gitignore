@@ -1,8 +1,11 @@
+logs/
 __pycache__/
-*.pyc
-.env
-node_modules/
+*.py[cod]
 .pytest_cache/
-*.db
-*.log
-dist/
+ui/node_modules/
+ui/dist/
+ui/logs/
+tests/fixtures/targets/runtime/
+.env
+.env.local
+.env.*.local

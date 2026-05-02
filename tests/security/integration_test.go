@@ -20,7 +20,7 @@ func TestSecurityPipeline_FullFlow(t *testing.T) {
 				Name:    "opa",
 				Enabled: true,
 				Config: map[string]interface{}{
-					"policy_path": "../../testdata/policies/main.rego",
+					"policy_path": "../fixtures/policies/main.rego",
 				},
 			},
 			{

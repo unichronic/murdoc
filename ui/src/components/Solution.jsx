@@ -16,7 +16,7 @@ export default function Solution() {
           <article className="card card-accent">
             <h3>1. Scan incoming data</h3>
             <p>
-              We scan all incoming data — emails, PDFs, logs — for hidden malicious instructions and
+              We scan all incoming data - emails, PDFs, logs - for hidden malicious instructions and
               remove them before the AI can process them. Our system acts as a security proxy for AI
               agents and removes threats before the AI can process them.
             </p>
@@ -25,7 +25,7 @@ export default function Solution() {
             <h3>2. Behavioral guardrails</h3>
             <p>
               We enforce real-time behavioral guardrails, blocking any attempt to misuse tools or
-              leak sensitive data — even if the AI is tricked.
+              leak sensitive data - even if the AI is tricked.
             </p>
           </article>
           <article className="card card-accent">

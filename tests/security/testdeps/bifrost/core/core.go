@@ -18,6 +18,10 @@ func NewAgentVault(config *schemas.AgentVaultConfig) (*AgentVault, error) {
 	return &AgentVault{plugins: config.Plugins}, nil
 }
 
+func NewBifrost(config *schemas.BifrostConfig) (*AgentVault, error) {
+	return NewAgentVault(config)
+}
+
 func (a *AgentVault) Close() error {
 	return nil
 }

@@ -1,325 +1,179 @@
-# Proprietary Code Leak Prevention System
+# AgentVault
 
-A comprehensive system to detect and prevent proprietary code from being leaked to LLMs, social media, and other platforms.
+AgentVault is a self-hosted security gateway for AI applications and agent tool
+traffic. It gives teams one place to inspect requests, authorize tool calls,
+redact sensitive data, record decisions, and test agent workflows against
+realistic attacks.
 
-## 🎯 What This Does
+![Architecture](assets/architecture.svg)
 
-Prevents your proprietary code from being accidentally or intentionally shared with:
-- **Web interfaces**: ChatGPT, Claude, and other LLMs
-- **Social media**: Twitter/X, LinkedIn
-- **Developer sites**: StackOverflow, GitHub discussions
-- **Terminal agents**: Claude Code, Aider, etc.
-- **AI IDEs**: Cursor, Windsurf, Continue.dev, Cline
-- **Any LLM API**: OpenAI, Anthropic, Google, Cohere, etc.
+## What It Does
 
-## 🚀 Quick Start
+- Provides an OpenAI-compatible gateway endpoint for agent LLM calls.
+- Provides an HTTP tool/API gateway for agent tool calls and internal services.
+- Provides an MCP gateway for MCP-compatible agents and tools.
+- Runs all three modes through the same policy, guardrail, redaction, and audit runtime.
+- Filters available MCP tools before a model or agent can select them.
+- Authorizes every tool/API call before it reaches the downstream server.
+- Inspects tool output before it is returned to the model.
+- Records decisions without storing raw prompts, raw secrets, or raw responses.
+- Includes a local attack lab for regression testing gateway behavior.
+- Ships a small dashboard, control plane, and local observability stack for development.
 
-### Option 1: MITM Proxy (Quick Setup)
+## How It Works
 
-```bash
-# 1. Install dependencies
-pip install -r requirements.txt
-
-# 2. Add your proprietary code
-cp /path/to/your/code/*.py proprietary_code/
-
-# 3. Start the proxy
-python security/start_proxy.py
-
-# 4. Configure browser to use localhost:8080
-# 5. Install certificate from http://mitm.it
+```text
+Client or agent
+  -> OpenAI-compatible endpoint, HTTP proxy, or MCP proxy
+  -> shared security runtime
+  -> policy and data checks
+  -> upstream model, agent, API, tool, or MCP server
+  -> output inspection
+  -> response
 ```
 
-### Option 2: Bifrost Plugin (Recommended for Production)
+The runtime receives a normalized request envelope with actor, tenant, route,
+content, context, and tool metadata. Adapters stay protocol-specific; policy and
+decision logic stays shared.
 
-```bash
-# 1. Run setup script
-./setup_bifrost_plugin.sh
+## Agent Integration Modes
 
-# 2. Add your proprietary code
-cp /path/to/your/code/*.py proprietary_code/
+AgentVault keeps the production surface to three plug-and-play modes:
 
-# 3. Add plugin to Bifrost config
-# (see BIFROST_INTEGRATION_GUIDE.md)
+1. **OpenAI-compatible LLM gateway**
+   Agents and frameworks point their model client at AgentVault instead of the
+   provider directly:
 
-# 4. Configure tools to use Bifrost
-export ANTHROPIC_BASE_URL="http://localhost:8000"
-export OPENAI_BASE_URL="http://localhost:8000"
+   ```bash
+   curl -X PUT http://localhost:8000/api/control-plane/gateway-routes/default-llm \
+     -H 'Content-Type: application/json' \
+     -d '{"kind":"llm_openai","upstream_url":"https://api.openai.com","profile_id":"default-agent"}'
 
-# 5. Restart Bifrost
-cd bifrost && ./bifrost restart
+   curl http://localhost:8000/v1/chat/completions \
+     -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer $OPENAI_API_KEY' \
+     -d '{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"Hello"}]}'
+   ```
+
+   You can also set `AGENTVAULT_DEFAULT_LLM_UPSTREAM_URL=https://api.openai.com`
+   before startup to register `default-llm` automatically.
+
+2. **HTTP tool/API gateway**
+   Agents call internal APIs through registered proxy routes:
+
+   ```bash
+   curl -X PUT http://localhost:8000/api/control-plane/gateway-routes/support-tools \
+     -H 'Content-Type: application/json' \
+     -d '{"kind":"http_tool","upstream_url":"http://localhost:8001","profile_id":"tool-write"}'
+
+   curl -X POST http://localhost:8000/proxy/support-tools/process \
+     -H 'Content-Type: application/json' \
+     -d '{"text":"Could you open a support ticket?"}'
+   ```
+
+3. **MCP gateway**
+   MCP-compatible agents connect to the AgentVault MCP server, which proxies to
+   the downstream MCP server:
+
+   ```bash
+   export MCP_SERVER_ID=example
+   export MCP_DOWNSTREAM_COMMAND=python
+   export MCP_DOWNSTREAM_ARGS="tests/fixtures/targets/fake_mcp_server.py"
+   python -m mcp_gateway.proxy_server
+   ```
+
+## Repository Layout
+
+```text
+bifrost_gateway/        Shared runtime
+agentvault_gateway/     HTTP gateway, OpenAI-compatible endpoint, and control-plane API
+security/               Policy, guardrail, control-plane, and audit modules
+mcp_gateway/            Generic MCP adapter and standalone MCP proxy
+ui/                     React dashboard
+examples/               Clone-and-run examples
+tests/python/           Python tests
+tests/security/         Go security integration tests
+tests/fixtures/         Test policies and runnable test targets
+tests/tools/            Attack lab and fuzzing helpers
+assets/                 Images used by the README
+observability/          Local metrics, logs, traces, and dashboards
 ```
 
-**Protects**: Terminal agents, AI IDEs, custom scripts, web interfaces - everything!
+## Setup
 
-## 📁 Project Structure
-
-```
-.
-├── security/                          # Detection system
-│   ├── fuzzy_detector.py             # Core detection engine
-│   ├── mitm_proxy.py                 # MITM proxy
-│   ├── start_proxy.py                # Proxy startup
-│   ├── config.py                     # Configuration
-│   └── __init__.py
-├── proprietary_code/                  # Your proprietary code
-│   └── secret_algorithm.py           # Sample code
-├── bifrost_plugin_proprietary_detection.go  # Bifrost plugin
-├── setup_bifrost_plugin.sh           # Plugin setup script
-├── check_code.py                     # CLI tool for testing
-├── test_detection_working.py         # Test suite
-├── demo_complete_system.py           # Complete demo
-├── test_bifrost_plugin.py            # Plugin test
-├── requirements.txt                  # Python dependencies
-├── QUICK_START.md                    # Quick start guide
-├── DETECTION_APPROACH.md             # How detection works
-├── BIFROST_INTEGRATION_GUIDE.md      # Bifrost setup
-└── BIFROST_VS_MITM_COMPARISON.md     # Comparison guide
-```
-
-## 🔍 How It Works
-
-### Detection Method: Fuzzy Matching
-
-The system uses **RapidFuzz** with a **sliding window** approach to detect proprietary code:
-
-1. **Index** your proprietary code files
-2. **Extract** text from user requests
-3. **Compare** using fuzzy matching (Levenshtein distance)
-4. **Block** if similarity >= threshold (default 60%)
-
-### Example Detection
-
-```python
-# Your proprietary code
-def calculate_secret_score(data, weights):
-    score = 0
-    for i, value in enumerate(data):
-        score += value * weights[i]
-    return score
-
-# User tries to paste (with renamed variables)
-def calculate_secret_score(data, weights):
-    total = 0
-    for idx, val in enumerate(data):
-        total += val * weights[idx]
-    return total
-
-# Result: 72.87% similarity → BLOCKED! ✅
-```
-
-## 🧪 Testing
-
-### Run Complete Test Suite
-
-```bash
-python test_detection_working.py
-```
-
-### Test Specific Code
-
-```bash
-# Check code string
-python check_code.py "def my_function(): pass"
-
-# Check file
-python check_code.py --file mycode.py
-
-# Interactive mode
-python check_code.py --interactive
-```
-
-### Run Complete Demo
-
-```bash
-python demo_complete_system.py
-```
-
-## 📊 Test Results
-
-✅ **Exact match detection**: 84.375% similarity  
-✅ **Modified code detection**: 72.87% similarity (renamed variables)  
-✅ **Generic code allowed**: 0% similarity  
-
-## 🎛️ Configuration
-
-### Adjust Detection Threshold
-
-Edit `security/fuzzy_detector.py`:
-
-```python
-# Line 13
-MIN_SIMILARITY_SCORE = 60  # Change this
-
-# Options:
-# 50 = More strict (catches more, may have false positives)
-# 60 = Balanced (recommended)
-# 70 = More lenient (fewer false positives)
-```
-
-### Add Monitored Sites
-
-Edit `security/mitm_proxy.py`:
-
-```python
-MONITORED_SITES = {
-    'chatgpt.com': handle_chatgpt,
-    'twitter.com': handle_twitter,
-    'stackoverflow.com': handle_stackoverflow,
-    'your-site.com': handle_generic_post,  # Add this
-}
-```
-
-## 📚 Documentation
-
-- **[QUICK_TEST_CHATGPT.md](QUICK_TEST_CHATGPT.md)** - Test with ChatGPT in 5 minutes ⭐
-- **[MANUAL_TESTING_GUIDE.md](MANUAL_TESTING_GUIDE.md)** - Complete manual testing guide
-- **[QUICK_START.md](QUICK_START.md)** - Get started in 5 minutes
-- **[TERMINAL_AGENTS_SETUP.md](TERMINAL_AGENTS_SETUP.md)** - Setup for Claude Code, Cursor, Aider, etc.
-- **[DETECTION_APPROACH.md](DETECTION_APPROACH.md)** - How detection works
-- **[BIFROST_INTEGRATION_GUIDE.md](BIFROST_INTEGRATION_GUIDE.md)** - Bifrost plugin setup
-- **[BIFROST_VS_MITM_COMPARISON.md](BIFROST_VS_MITM_COMPARISON.md)** - Which approach to use
-
-## 🔧 Requirements
-
-### Python Dependencies
+Install Python dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Required packages:
-- `rapidfuzz` - Fast fuzzy string matching
-- `mitmproxy` - MITM proxy (for proxy approach)
-
-### Optional Enhancements
-
-The current fuzzy matching approach works well for most use cases (84% accuracy). For advanced scenarios, you could add:
-
-- **ML-based pre-filtering** - Skip fuzzy matching for non-code text (performance optimization)
-- **Image detection** - Detect code in screenshots using OCR
-- **Custom similarity algorithms** - Fine-tune detection for your specific code patterns
-
-These are optional and not required for the core functionality.
-
-### Go Dependencies (for Bifrost plugin)
+Run the gateway API:
 
 ```bash
-go get github.com/rapidfuzz/go-rapidfuzz
+uvicorn agentvault_gateway.app:app --host 0.0.0.0 --port 8000
 ```
 
-## 🚦 Two Approaches
-
-| Feature | MITM Proxy | Bifrost Plugin |
-|---------|-----------|----------------|
-| **Web browsers** | ✅ Yes | ✅ Yes |
-| **Terminal agents** | ❌ No | ✅ Yes |
-| **AI IDEs** | ❌ No | ✅ Yes |
-| **Setup complexity** | Easy | Medium |
-| **Certificate needed** | Yes | No |
-| **Per-tool config** | Yes | No |
-| **Performance** | Good | Excellent |
-| **Best for** | Testing, POC | Production |
-
-### 1. MITM Proxy (Quick Setup)
-
-**Pros:**
-- Quick to set up
-- No gateway modification needed
-- Good for testing
-
-**Cons:**
-- Only works with web browsers
-- Requires proxy configuration
-- Certificate installation needed
-- Doesn't protect terminal agents or AI IDEs
-
-**Use for:** Testing, POC, web-only protection
-
-### 2. Bifrost Plugin (Production)
-
-**Pros:**
-- Protects EVERYTHING (web, terminal, IDEs)
-- Native gateway integration
-- No client configuration
-- Better performance
-- Centralized control
-
-**Cons:**
-- Requires Bifrost access
-- Requires Go build
-
-**Use for:** Production, enterprise, complete protection
-
-## 📈 Performance
-
-- **Detection speed**: 10-50ms per file
-- **Memory usage**: ~50MB for 100 files
-- **Proxy overhead**: 5-20ms per request (MITM)
-- **Plugin overhead**: 1-5ms per request (Bifrost)
-
-## 🔒 Security
-
-1. **Proprietary code storage**: Keep `proprietary_code/` secure
-2. **Access control**: Limit who can modify detection rules
-3. **Logging**: Detections are logged for audit
-4. **No data leakage**: Code never leaves your infrastructure
-
-## 🛠️ Troubleshooting
-
-### Detection not working?
+Run the dashboard:
 
 ```bash
-# Check proprietary code exists
-ls -la proprietary_code/
-
-# Run test suite
-python test_detection_working.py
-
-# Try lower threshold
-# Edit security/fuzzy_detector.py, set MIN_SIMILARITY_SCORE = 50
+cd ui
+npm install
+npm run dev
 ```
 
-### Too many false positives?
+Open `http://localhost:5173`.
+
+The control plane is available in the dashboard and through
+`/api/control-plane/*`. It manages gateway upstream routes, route profiles,
+audit views, usage summaries, alert intake, non-secret runtime settings, and
+local attack-lab settings.
+
+## MCP Proxy
+
+Run the standalone MCP proxy against any stdio MCP server:
 
 ```bash
-# Increase threshold
-# Edit security/fuzzy_detector.py, set MIN_SIMILARITY_SCORE = 70
+export MCP_SERVER_ID=example
+export MCP_DOWNSTREAM_COMMAND=python
+export MCP_DOWNSTREAM_ARGS="tests/fixtures/targets/fake_mcp_server.py"
+export MCP_ENFORCE_TOOL_ALLOWLIST=true
+export MCP_ALLOWED_TOOLS=example:safe_search
+
+python -m mcp_gateway.proxy_server
 ```
 
-### Proxy not intercepting?
+The proxy exposes an MCP server upstream and keeps a downstream MCP session open.
+Discovery responses are filtered, tool calls are authorized, and textual results
+are inspected before they are returned.
+
+## Testing
+
+Run Python tests:
 
 ```bash
-# Check proxy is running
-# Should see: "Proxy server listening at http://0.0.0.0:8080"
-
-# Check browser proxy settings
-# Should be: localhost:8080
-
-# For HTTPS, install certificate
-# Visit: http://mitm.it
+python -m pytest -q
 ```
 
-## 🤝 Credits
+Run Go security integration tests:
 
-Based on the fuzzy matching approach from [SigmaShield](https://github.com/Nimisha-NB/SigmaShield).
+```bash
+cd tests/security
+go test ./...
+```
 
-Key improvements:
-- Cleaner code organization
-- Better documentation
-- Bifrost gateway integration
-- Comprehensive testing
-- Production-ready implementation
+Build the UI:
 
-## 📝 License
+```bash
+cd ui
+npm run build
+```
 
-This is proprietary code leak prevention software. Use responsibly and in accordance with your organization's policies.
+Run the local attack lab:
 
-## 🎯 Summary
+```bash
+python tests/tools/attack_lab.py --mode compare --profile extended --iterations 3 --concurrency 6 --include-stateful
+```
 
-✅ **Detection working**: 84% similarity on exact matches, 72% on modified code  
-✅ **Two deployment options**: MITM proxy (quick) or Bifrost plugin (production)  
-✅ **Comprehensive testing**: Full test suite included  
-✅ **Production ready**: Clean, tested, and documented  
+## Contributing
 
-**Get started**: See [QUICK_START.md](QUICK_START.md)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the repo boundaries and local checks.

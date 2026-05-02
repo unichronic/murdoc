@@ -1,26 +1,8 @@
-"""
-Layer 4: Presidio — PII & Secret Leak Detection
-=================================================
-
-This module integrates Microsoft Presidio to detect and redact Personally
-Identifiable Information (PII) and secrets from LLM agent OUTPUT before
-it reaches the end user.
-
-Detects: credit cards, emails, phone numbers, SSNs, API keys, tokens,
-         AWS keys, private keys, IP addresses, IBANs, crypto wallets, etc.
-
-Presidio Docs: https://microsoft.github.io/presidio/
-
-Usage:
-    from security.presidio_analyzer import scan_output, redact_output
-
-    result = scan_output("Contact john@example.com or call 555-0123")
-    if result.has_pii:
-        clean_text = redact_output(result.original_text)
-"""
+"""Sensitive data scanner and redactor."""
 
 import logging
 import re
+import anyio
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -34,13 +16,8 @@ from security.config import (
     PRESIDIO_REDACT_PLACEHOLDER,
 )
 
-# Configure logging for the Presidio module
 logger = logging.getLogger(__name__)
 
-
-# =============================================================================
-# Data Models
-# =============================================================================
 
 @dataclass
 class DetectedEntity:
@@ -82,10 +59,6 @@ class PresidioResult:
     error: Optional[str] = None
 
 
-# =============================================================================
-# Custom Recognizers for Secrets/Keys
-# =============================================================================
-
 def _build_custom_secret_recognizers() -> List[PatternRecognizer]:
     """
     Build custom Presidio pattern recognizers for detecting secrets,
@@ -97,6 +70,20 @@ def _build_custom_secret_recognizers() -> List[PatternRecognizer]:
     """
 
     recognizers = []
+
+    ssn_recognizer = PatternRecognizer(
+        supported_entity="US_SSN",
+        name="USSSNRecognizer",
+        patterns=[
+            Pattern(
+                name="ssn_dash_format",
+                regex=r"\b\d{3}-\d{2}-\d{4}\b",
+                score=0.95,
+            ),
+        ],
+        context=["ssn", "social security", "taxpayer"],
+    )
+    recognizers.append(ssn_recognizer)
 
     # --- 1. CVV Code ---
     cvv_recognizer = PatternRecognizer(
@@ -523,7 +510,7 @@ def redact_output(text: str) -> str:
 
     except Exception as e:
         # TODO: Decide on fallback behavior when redaction fails:
-        #       1. Return original text (risky — may leak PII)
+        #       1. Return original text (risky; may leak PII)
         #       2. Return empty string (safe but unhelpful)
         #       3. Return generic error message
         #       Currently: returns original text with warning.
@@ -537,7 +524,7 @@ def redact_output(text: str) -> str:
 
 def has_sensitive_data(text: str) -> bool:
     """
-    Simple boolean helper — returns True if the output contains PII/secrets.
+    Simple boolean helper; returns True if the output contains PII/secrets.
 
     Convenience wrapper around scan_output() for quick yes/no checks.
 
@@ -568,7 +555,7 @@ def get_scan_summary(result: PresidioResult) -> str:
         A formatted summary string.
     """
     if result.error:
-        return f"[Presidio] ⚠️  Scan error: {result.error}"
+        return f"[Presidio] Scan error: {result.error}"
 
     if result.has_pii:
         entity_summary = ", ".join(
@@ -576,9 +563,37 @@ def get_scan_summary(result: PresidioResult) -> str:
             for etype in result.entity_types
         )
         return (
-            f"[Presidio] 🚨 DETECTED {result.entity_count} entities — "
+            f"[Presidio] DETECTED {result.entity_count} entities - "
             f"{entity_summary}"
         )
 
-    return "[Presidio] ✅ Clean — No PII/secrets detected"
-# reviewed
+    return "[Presidio] Clean - No PII/secrets detected"
+
+async def async_scan_output(text: str) -> PresidioResult:
+    """Async wrapper for the CPU-bound scan_output function."""
+    if not text:
+        return PresidioResult(original_text=text)
+    return await anyio.to_thread.run_sync(scan_output, text)
+
+async def async_redact_output(text: str) -> str:
+    """Async wrapper for the CPU-bound redact_output function."""
+    if not text:
+        return text
+    return await anyio.to_thread.run_sync(redact_output, text)
+
+async def async_has_sensitive_data(text: str) -> bool:
+    """Async wrapper for the CPU-bound has_sensitive_data function."""
+    if not text:
+        return False
+    return await anyio.to_thread.run_sync(has_sensitive_data, text)
+
+
+async def warmup_presidio() -> None:
+    """Warm the analyzer and anonymizer on realistic no-op and redact paths."""
+    samples = [
+        "Warmup policy summary request.",
+        "Contact hr@example.com about payroll.",
+    ]
+    for sample in samples:
+        await async_scan_output(sample)
+        await async_redact_output(sample)

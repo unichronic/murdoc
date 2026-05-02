@@ -1,10 +1,4 @@
-"""
-Presidio HTTP Service
-=====================
-
-Flask service that exposes Presidio PII detection and redaction via HTTP/JSON.
-Used by the Bifrost Go middleware for input scrubbing.
-"""
+"""Small HTTP wrapper for scanner experiments."""
 
 from flask import Flask, request, jsonify
 from security.presidio_scanner import scan_output, redact_output

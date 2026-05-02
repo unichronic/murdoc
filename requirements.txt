@@ -11,6 +11,13 @@ flask>=3.0.0
 fastapi>=0.100.0
 uvicorn>=0.23.0
 
+# Observability
+prometheus-client>=0.20.0
+opentelemetry-api>=1.30.0
+opentelemetry-sdk>=1.30.0
+opentelemetry-instrumentation-flask>=0.50b0
+opentelemetry-exporter-otlp>=1.30.0
+
 # Database & Storage
 sqlite-utils>=3.34
 faiss-cpu>=1.7.4
@@ -20,6 +27,9 @@ pydantic>=2.0.0
 
 # AI Agent Framework
 agno>=0.1.0
+nemoguardrails>=0.21.0
+cisco-ai-a2a-scanner>=1.0.1
+yara-python>=4.5.4
 
 # Layer 4: Presidio (PII & Secret Detection)
 presidio-analyzer>=2.2.0

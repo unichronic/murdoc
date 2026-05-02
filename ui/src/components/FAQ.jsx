@@ -8,7 +8,7 @@ const ITEMS = [
   },
   {
     q: 'How does it protect against prompt injection and goal hijacking?',
-    a: 'All incoming content — emails, PDFs, logs, tickets — is inspected before the agent sees it. Prompt-injection patterns and hidden goals are detected and stripped. Tool calls are evaluated against policy regardless of what the model decided.',
+    a: 'All incoming content - emails, PDFs, logs, tickets - is inspected before the agent sees it. Prompt-injection patterns and hidden goals are detected and stripped. Tool calls are evaluated against policy regardless of what the model decided.',
   },
   {
     q: 'What are canary markers?',
