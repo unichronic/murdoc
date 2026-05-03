@@ -20,6 +20,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 import uvicorn
 
 from murdoc.security.auth import (
@@ -51,13 +52,16 @@ from murdoc.security.config import (
     AGENT_BACKEND_URL,
     AGENT_MEMORY_CONTEXT_URL,
     MURDOC_AUDIT_RETENTION_DAYS,
+    MURDOC_ALLOWED_HOSTS,
     MURDOC_AUTH_MODE,
+    MURDOC_AUTH_PROXY_TRUSTED_IPS,
     MURDOC_CONTROL_PLANE_FILE,
     MURDOC_DECISION_LEDGER_FILE,
     MURDOC_DEPLOYMENT_PROFILE,
     MURDOC_GATEWAY_ROUTES_FILE,
     MURDOC_REQUIRE_PERSISTENCE_FOR_PRODUCTION,
     MURDOC_RUNTIME_SETTINGS_FILE,
+    MURDOC_SECURITY_HEADERS_ENABLED,
     MURDOC_SESSION_SECURE,
 )
 
@@ -212,6 +216,7 @@ def _clear_console_cookie(response: JSONResponse) -> JSONResponse:
 
 
 def _hardening_status() -> dict:
+    ledger_metadata = decision_ledger.metadata()
     persistence_files = {
         "route profiles": MURDOC_CONTROL_PLANE_FILE,
         "gateway routes": MURDOC_GATEWAY_ROUTES_FILE,
@@ -223,14 +228,16 @@ def _hardening_status() -> dict:
         for name, path in persistence_files.items()
         if name != "decision ledger"
     )
-    audit_ready = bool(MURDOC_DECISION_LEDGER_FILE) and MURDOC_AUDIT_RETENTION_DAYS > 0
+    audit_ready = bool(ledger_metadata["persisted"]) and MURDOC_AUDIT_RETENTION_DAYS > 0
     production_profile = MURDOC_DEPLOYMENT_PROFILE == "production"
     auth_ready = auth_required() and MURDOC_AUTH_MODE in {"local", "proxy", "oidc"}
+    proxy_trust_ready = MURDOC_AUTH_MODE != "proxy" or bool(MURDOC_AUTH_PROXY_TRUSTED_IPS)
+    edge_ready = MURDOC_SECURITY_HEADERS_ENABLED and "*" not in MURDOC_ALLOWED_HOSTS
     checks = [
         {
             "id": "access-control",
             "label": "Access control",
-            "status": "ready" if auth_ready else "attention",
+            "status": "ready" if auth_ready and proxy_trust_ready else "attention",
             "detail": f"{auth_mode_label()} with role-based control-plane access.",
         },
         {
@@ -243,13 +250,13 @@ def _hardening_status() -> dict:
             "id": "audit-retention",
             "label": "Audit retention",
             "status": "ready" if audit_ready else "attention",
-            "detail": f"Decision records are retained for {MURDOC_AUDIT_RETENTION_DAYS} days." if audit_ready else "Decision records are bounded in memory; persistent audit retention is not enabled.",
+            "detail": f"Decision records are retained for {ledger_metadata['retention_days']} days with persisted JSONL state." if audit_ready else "Decision records are bounded in memory; persistent audit retention is not enabled.",
         },
         {
             "id": "deployment-hardening",
             "label": "Deployment hardening",
-            "status": "ready" if production_profile and (persistence_ready or not MURDOC_REQUIRE_PERSISTENCE_FOR_PRODUCTION) else "attention",
-            "detail": "Production profile is enabled." if production_profile else "Development profile is active.",
+            "status": "ready" if production_profile and edge_ready and (persistence_ready or not MURDOC_REQUIRE_PERSISTENCE_FOR_PRODUCTION) else "attention",
+            "detail": "Production profile, host allowlist, and security headers are enabled." if production_profile and edge_ready else "Development profile or permissive edge settings are active.",
         },
         {
             "id": "observability",
@@ -262,6 +269,7 @@ def _hardening_status() -> dict:
         "deployment_profile": MURDOC_DEPLOYMENT_PROFILE,
         "auth_mode": auth_mode_label(),
         "audit_retention_days": MURDOC_AUDIT_RETENTION_DAYS,
+        "audit": ledger_metadata,
         "production_ready": all(item["status"] == "ready" for item in checks),
         "checks": checks,
     }
@@ -374,6 +382,8 @@ def create_app() -> FastAPI:
         yield
 
     app = FastAPI(title="Murdoc Gateway", lifespan=lifespan)
+    if MURDOC_ALLOWED_HOSTS and "*" not in MURDOC_ALLOWED_HOSTS:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=MURDOC_ALLOWED_HOSTS)
     obs = install_observability(app)
     app.state.control_plane = control_plane
     app.state.decision_ledger = decision_ledger
@@ -391,6 +401,17 @@ def create_app() -> FastAPI:
 
     repo_root = Path(__file__).resolve().parents[2]
     static_folder = str(repo_root / "ui" / "dist")
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        if MURDOC_SECURITY_HEADERS_ENABLED:
+            response.headers.setdefault("X-Content-Type-Options", "nosniff")
+            response.headers.setdefault("X-Frame-Options", "DENY")
+            response.headers.setdefault("Referrer-Policy", "no-referrer")
+            response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+            response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        return response
 
     @app.middleware("http")
     async def control_plane_admin_auth(request: Request, call_next):

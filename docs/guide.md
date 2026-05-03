@@ -145,7 +145,9 @@ Murdoc supports three access patterns for production operators:
   tokens against the issuer JWKS and maps groups to RBAC roles.
 - Identity proxy access: set `MURDOC_AUTH_MODE=proxy` when an ingress,
   OAuth2/OIDC proxy, or SAML identity proxy authenticates users before traffic
-  reaches Murdoc and forwards trusted identity headers.
+  reaches Murdoc and forwards trusted identity headers. Set
+  `MURDOC_AUTH_PROXY_TRUSTED_IPS` to the proxy or ingress CIDR so identity
+  headers cannot be spoofed by direct clients.
 
 RBAC uses three roles. Viewers can read control-plane state and audit summaries.
 Operators can update routes, profiles, runtime settings, and run the attack
@@ -156,10 +158,13 @@ or ownership tasks. Configure group mappings with
 
 For production deployments, set `MURDOC_DEPLOYMENT_PROFILE=production`, enable
 TLS at ingress, store secrets in the platform secret manager, enable secure
-cookies with `MURDOC_SESSION_SECURE=true`, mount persistent state files, and set
-`MURDOC_DECISION_LEDGER_FILE` with an audit retention window. The console
-Overview tab reports whether access control, configuration storage, audit
-retention, deployment hardening, and observability are ready.
+cookies with `MURDOC_SESSION_SECURE=true`, set `MURDOC_ALLOWED_HOSTS` to the
+public gateway hostnames, mount persistent state files, and set
+`MURDOC_DECISION_LEDGER_FILE` with an audit retention window. The decision
+ledger reloads persisted JSONL records on restart, prunes records outside
+`MURDOC_AUDIT_RETENTION_DAYS`, and compacts the file after retention pruning.
+The console Overview tab reports whether access control, configuration storage,
+audit retention, deployment hardening, and observability are ready.
 
 Native SAML is normally handled by an identity proxy in front of Murdoc. That
 keeps assertion parsing, IdP metadata rotation, and session lifecycle in the

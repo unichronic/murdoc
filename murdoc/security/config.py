@@ -1,6 +1,7 @@
 """Environment-backed gateway configuration."""
 
 import os
+import ipaddress
 import secrets
 from dotenv import load_dotenv
 
@@ -10,6 +11,16 @@ load_dotenv()
 def _csv_env(name: str, default: str) -> list[str]:
     raw = os.getenv(name, default)
     return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _cidr_env(name: str, default: str) -> list:
+    networks = []
+    for item in _csv_env(name, default):
+        try:
+            networks.append(ipaddress.ip_network(item, strict=False))
+        except ValueError:
+            continue
+    return networks
 
 # Prompt-attack scanner.
 LAKERA_API_KEY = os.getenv("LAKERA_API_KEY", "")
@@ -54,6 +65,7 @@ MURDOC_SESSION_SECURE = os.getenv("MURDOC_SESSION_SECURE", "false").lower() == "
 MURDOC_AUTH_PROXY_USER_HEADER = os.getenv("MURDOC_AUTH_PROXY_USER_HEADER", "X-Forwarded-User").strip()
 MURDOC_AUTH_PROXY_EMAIL_HEADER = os.getenv("MURDOC_AUTH_PROXY_EMAIL_HEADER", "X-Forwarded-Email").strip()
 MURDOC_AUTH_PROXY_GROUPS_HEADER = os.getenv("MURDOC_AUTH_PROXY_GROUPS_HEADER", "X-Forwarded-Groups").strip()
+MURDOC_AUTH_PROXY_TRUSTED_IPS = _cidr_env("MURDOC_AUTH_PROXY_TRUSTED_IPS", "")
 MURDOC_OIDC_ISSUER = os.getenv("MURDOC_OIDC_ISSUER", "").strip()
 MURDOC_OIDC_AUDIENCE = os.getenv("MURDOC_OIDC_AUDIENCE", "").strip()
 MURDOC_OIDC_JWKS_URL = os.getenv("MURDOC_OIDC_JWKS_URL", "").strip()
@@ -65,6 +77,8 @@ MURDOC_AUDIT_RETENTION_DAYS = int(os.getenv("MURDOC_AUDIT_RETENTION_DAYS", "90")
 MURDOC_DECISION_LEDGER_MAX_RECORDS = int(os.getenv("MURDOC_DECISION_LEDGER_MAX_RECORDS", "1000"))
 MURDOC_DEPLOYMENT_PROFILE = os.getenv("MURDOC_DEPLOYMENT_PROFILE", "development").strip().lower()
 MURDOC_REQUIRE_PERSISTENCE_FOR_PRODUCTION = os.getenv("MURDOC_REQUIRE_PERSISTENCE_FOR_PRODUCTION", "true").lower() == "true"
+MURDOC_SECURITY_HEADERS_ENABLED = os.getenv("MURDOC_SECURITY_HEADERS_ENABLED", "true").lower() == "true"
+MURDOC_ALLOWED_HOSTS = _csv_env("MURDOC_ALLOWED_HOSTS", "*")
 MURDOC_CONTROL_PLANE_FILE = os.getenv("MURDOC_CONTROL_PLANE_FILE", "").strip()
 MURDOC_GATEWAY_ROUTES_FILE = os.getenv("MURDOC_GATEWAY_ROUTES_FILE", "").strip()
 MURDOC_RUNTIME_SETTINGS_FILE = os.getenv("MURDOC_RUNTIME_SETTINGS_FILE", "").strip()

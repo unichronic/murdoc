@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import ipaddress
 import json
 import time
 from dataclasses import dataclass, field
@@ -19,6 +20,7 @@ from murdoc.security.config import (
     MURDOC_AUTH_MODE,
     MURDOC_AUTH_PROXY_EMAIL_HEADER,
     MURDOC_AUTH_PROXY_GROUPS_HEADER,
+    MURDOC_AUTH_PROXY_TRUSTED_IPS,
     MURDOC_AUTH_PROXY_USER_HEADER,
     MURDOC_OIDC_AUDIENCE,
     MURDOC_OIDC_GROUPS_CLAIM,
@@ -188,8 +190,22 @@ def _groups_from_header(value: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in value.replace(";", ",").split(",") if item.strip())
 
 
+def _proxy_client_trusted(request: Request) -> bool:
+    if not MURDOC_AUTH_PROXY_TRUSTED_IPS:
+        return True
+    if request.client is None:
+        return False
+    try:
+        client_ip = ipaddress.ip_address(request.client.host)
+    except ValueError:
+        return False
+    return any(client_ip in network for network in MURDOC_AUTH_PROXY_TRUSTED_IPS)
+
+
 def principal_from_proxy_headers(request: Request) -> Principal | None:
     if _configured_auth_mode() != "proxy":
+        return None
+    if not _proxy_client_trusted(request):
         return None
     subject = request.headers.get(MURDOC_AUTH_PROXY_USER_HEADER, "").strip()
     email = request.headers.get(MURDOC_AUTH_PROXY_EMAIL_HEADER, "").strip()

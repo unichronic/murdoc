@@ -1,4 +1,7 @@
 import asyncio
+import json
+from datetime import datetime, timedelta, timezone
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +17,7 @@ import murdoc.gateway.app as gateway_server
 from murdoc.gateway.app import create_app
 from murdoc.security.lakera_guard import LakeraResult
 from murdoc.core import MurdocRuntime
-from murdoc.security.control_plane import runtime_settings
+from murdoc.security.control_plane import DecisionLedger, runtime_settings
 
 
 @pytest.fixture(autouse=True)
@@ -396,6 +399,44 @@ def test_hardening_status_reports_access_and_storage_posture(monkeypatch):
     payload = authorized.json()
     assert "checks" in payload
     assert any(item["id"] == "access-control" for item in payload["checks"])
+
+
+def test_gateway_applies_security_headers():
+    client = client_for()
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 200
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "no-referrer"
+
+
+def test_decision_ledger_reloads_and_compacts_retained_records(tmp_path):
+    ledger_file = tmp_path / "decisions.jsonl"
+    old_record = {
+        "timestamp": (datetime.now(timezone.utc) - timedelta(days=3)).isoformat(),
+        "request_id": "old",
+        "decision": "allow",
+    }
+    retained_record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "request_id": "retained",
+        "decision": "block",
+    }
+    ledger_file.write_text(
+        json.dumps(old_record) + "\n" + json.dumps(retained_record) + "\n",
+        encoding="utf-8",
+    )
+
+    ledger = DecisionLedger(max_records=10, log_file=str(ledger_file), retention_days=1)
+
+    assert ledger.get("old") is None
+    assert ledger.get("retained")["decision"] == "block"
+    assert ledger.metadata()["persisted"] is True
+    compacted = ledger_file.read_text(encoding="utf-8")
+    assert "retained" in compacted
+    assert "old" not in compacted
 
 
 def test_openai_compatible_gateway_forwards_to_registered_llm_route(monkeypatch):

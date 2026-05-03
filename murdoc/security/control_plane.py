@@ -312,6 +312,7 @@ class DecisionLedger:
         self.log_file = log_file
         self.retention_days = max(1, retention_days)
         self._records: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self._load_from_disk()
 
     def append(self, record: dict[str, Any]) -> dict[str, Any]:
         request_id = record.get("request_id") or f"decision-{int(time.time() * 1000)}"
@@ -322,12 +323,14 @@ class DecisionLedger:
         }
         self._records[request_id] = stored
         self._records.move_to_end(request_id)
-        self._prune()
+        if self._prune():
+            self._compact_log_file()
         self._write(stored)
         return stored
 
     def list_records(self, limit: int = 100) -> list[dict[str, Any]]:
-        self._prune()
+        if self._prune():
+            self._compact_log_file()
         safe_limit = max(1, min(limit, self.max_records))
         return list(reversed(list(self._records.values())[-safe_limit:]))
 
@@ -357,8 +360,19 @@ class DecisionLedger:
         return filtered
 
     def get(self, request_id: str) -> dict[str, Any] | None:
-        self._prune()
+        if self._prune():
+            self._compact_log_file()
         return self._records.get(request_id)
+
+    def metadata(self) -> dict[str, Any]:
+        if self._prune():
+            self._compact_log_file()
+        return {
+            "persisted": bool(self.log_file),
+            "retention_days": self.retention_days,
+            "max_records": self.max_records,
+            "record_count": len(self._records),
+        }
 
     def usage_summary(self, *, tenant_id: str | None = None, app_id: str | None = None) -> dict[str, Any]:
         records = self.query_records(limit=self.max_records, tenant_id=tenant_id, app_id=app_id)
@@ -432,17 +446,56 @@ class DecisionLedger:
             handle.write(json.dumps(record, sort_keys=True))
             handle.write("\n")
 
-    def _prune(self) -> None:
+    def _load_from_disk(self) -> None:
+        if not self.log_file or not os.path.exists(self.log_file):
+            return
+        with open(self.log_file, "r", encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                request_id = record.get("request_id")
+                if not request_id:
+                    continue
+                self._records[str(request_id)] = record
+                self._records.move_to_end(str(request_id))
+        if self._prune():
+            self._compact_log_file()
+
+    def _compact_log_file(self) -> None:
+        if not self.log_file:
+            return
+        directory = os.path.dirname(self.log_file)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        temporary = f"{self.log_file}.tmp"
+        with open(temporary, "w", encoding="utf-8") as handle:
+            for record in self._records.values():
+                handle.write(json.dumps(record, sort_keys=True))
+                handle.write("\n")
+        os.replace(temporary, self.log_file)
+
+    def _parse_timestamp(self, record: dict[str, Any]) -> datetime:
+        try:
+            timestamp = datetime.fromisoformat(str(record.get("timestamp", "")).replace("Z", "+00:00"))
+        except ValueError:
+            timestamp = datetime.now(timezone.utc)
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        return timestamp
+
+    def _prune(self) -> bool:
+        changed = False
         cutoff = datetime.now(timezone.utc) - timedelta(days=self.retention_days)
         for request_id, record in list(self._records.items()):
-            try:
-                timestamp = datetime.fromisoformat(str(record.get("timestamp", "")).replace("Z", "+00:00"))
-            except ValueError:
-                timestamp = datetime.now(timezone.utc)
-            if timestamp < cutoff:
+            if self._parse_timestamp(record) < cutoff:
                 self._records.pop(request_id, None)
+                changed = True
         while len(self._records) > self.max_records:
             self._records.popitem(last=False)
+            changed = True
+        return changed
 
 
 class AlertLedger:
