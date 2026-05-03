@@ -5,7 +5,7 @@ security and platform teams one self-hosted control point to inspect requests,
 authorize tool calls, redact sensitive data, enforce policy, and audit agent
 workflows without rewriting the agent stack.
 
-![Architecture](assets/architecture.svg)
+![Architecture](architecture.svg)
 
 Murdoc runs as a gateway in front of model calls, tool calls, and MCP sessions.
 The shared runtime applies prompt-injection checks, sensitive-data redaction,
@@ -57,6 +57,19 @@ Run only selected local services:
 ./start.sh --agent
 ./start.sh --observability
 ```
+
+Deploy with Docker Compose:
+
+```bash
+cp .env.example .env
+# edit .env: set MURDOC_ADMIN_TOKEN, MURDOC_ALLOWED_HOSTS, and persistence paths
+docker compose --env-file .env up --build -d
+```
+
+The container serves the gateway API, console, health checks, and metrics on
+port `8000`. Put it behind ingress, TLS, identity, secrets, backup, and
+observability controls before exposing it beyond a trusted network. See
+[docs/deployment.md](docs/deployment.md) for details.
 
 Run the gateway API directly:
 
