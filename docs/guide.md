@@ -134,6 +134,38 @@ keep control-plane state in memory by default. Set `MURDOC_CONTROL_PLANE_FILE`,
 `MURDOC_GATEWAY_ROUTES_FILE`, or `MURDOC_RUNTIME_SETTINGS_FILE` to paths under
 `data/` when local persistence is needed outside Docker.
 
+## Enterprise Hardening
+
+Murdoc supports three access patterns for production operators:
+
+- Local console password: set `MURDOC_AUTH_MODE=local` and `MURDOC_ADMIN_TOKEN`
+  for a single administrative credential.
+- Native OIDC API access: set `MURDOC_AUTH_MODE=oidc`,
+  `MURDOC_OIDC_ISSUER`, and `MURDOC_OIDC_AUDIENCE`. Murdoc validates bearer
+  tokens against the issuer JWKS and maps groups to RBAC roles.
+- Identity proxy access: set `MURDOC_AUTH_MODE=proxy` when an ingress,
+  OAuth2/OIDC proxy, or SAML identity proxy authenticates users before traffic
+  reaches Murdoc and forwards trusted identity headers.
+
+RBAC uses three roles. Viewers can read control-plane state and audit summaries.
+Operators can update routes, profiles, runtime settings, and run the attack
+lab. Admins inherit operator permissions and should be reserved for emergency
+or ownership tasks. Configure group mappings with
+`MURDOC_RBAC_ADMIN_GROUPS`, `MURDOC_RBAC_OPERATOR_GROUPS`, and
+`MURDOC_RBAC_VIEWER_GROUPS`.
+
+For production deployments, set `MURDOC_DEPLOYMENT_PROFILE=production`, enable
+TLS at ingress, store secrets in the platform secret manager, enable secure
+cookies with `MURDOC_SESSION_SECURE=true`, mount persistent state files, and set
+`MURDOC_DECISION_LEDGER_FILE` with an audit retention window. The console
+Overview tab reports whether access control, configuration storage, audit
+retention, deployment hardening, and observability are ready.
+
+Native SAML is normally handled by an identity proxy in front of Murdoc. That
+keeps assertion parsing, IdP metadata rotation, and session lifecycle in the
+enterprise identity layer while Murdoc receives already-authenticated
+principals and applies RBAC locally.
+
 ## Container Deployment
 
 Build and run the gateway with the bundled UI:

@@ -12,6 +12,10 @@ The shared runtime applies prompt-injection checks, sensitive-data redaction,
 policy decisions, semantic guardrails, and audit summaries before agent traffic
 continues.
 
+The console includes route/profile management, attack-lab runs, observability
+links, RBAC-aware sign-in, and enterprise readiness checks for production
+operators.
+
 ## Setup
 
 Install the gateway:

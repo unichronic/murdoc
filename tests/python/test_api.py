@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 import murdoc.security.lakera_guard as lakera_guard
 import murdoc.security.policy_engine as policy_engine
+import murdoc.security.auth as auth_module
 from murdoc.security.policy_engine import AuthEnvelope, ContextEnvelope, evaluate_policy
 from murdoc.security.semantic_guardrails import SemanticGuardrailResult
 import murdoc.security.semantic_guardrails as semantic_guardrails
@@ -19,6 +20,9 @@ from murdoc.security.control_plane import runtime_settings
 @pytest.fixture(autouse=True)
 def local_policy_defaults(monkeypatch):
     gateway_server.MURDOC_ADMIN_TOKEN = ""
+    gateway_server.MURDOC_AUTH_MODE = "local"
+    auth_module.MURDOC_ADMIN_TOKEN = ""
+    auth_module.MURDOC_AUTH_MODE = "local"
     policy_engine.OPA_POLICY_URL = ""
     policy_engine.OPA_FAIL_CLOSED = False
     runtime_module.OPA_POLICY_URL = ""
@@ -94,6 +98,7 @@ def process_payload(client, payload):
 
 def test_admin_token_protects_control_plane_only(monkeypatch):
     monkeypatch.setattr(gateway_server, "MURDOC_ADMIN_TOKEN", "test-admin-token")
+    monkeypatch.setattr(auth_module, "MURDOC_ADMIN_TOKEN", "test-admin-token")
     client = client_for()
 
     status = client.get("/api/auth/status")
@@ -114,6 +119,7 @@ def test_admin_token_protects_control_plane_only(monkeypatch):
 
 def test_console_session_authenticates_control_plane(monkeypatch):
     monkeypatch.setattr(gateway_server, "MURDOC_ADMIN_TOKEN", "test-admin-token")
+    monkeypatch.setattr(auth_module, "MURDOC_ADMIN_TOKEN", "test-admin-token")
     client = client_for()
 
     bad_login = client.post("/api/auth/login", json={"password": "wrong"})
@@ -132,6 +138,39 @@ def test_console_session_authenticates_control_plane(monkeypatch):
     assert allowed.status_code == 200
     assert logout.status_code == 200
     assert blocked_after_logout.status_code == 401
+
+
+def test_proxy_auth_enforces_rbac_roles(monkeypatch):
+    monkeypatch.setattr(gateway_server, "MURDOC_AUTH_MODE", "proxy")
+    monkeypatch.setattr(auth_module, "MURDOC_AUTH_MODE", "proxy")
+    monkeypatch.setattr(auth_module, "MURDOC_RBAC_VIEWER_GROUPS", ["murdoc-viewers"])
+    monkeypatch.setattr(auth_module, "MURDOC_RBAC_OPERATOR_GROUPS", ["murdoc-operators"])
+    client = client_for()
+
+    viewer_headers = {
+        "X-Forwarded-User": "viewer@example.com",
+        "X-Forwarded-Groups": "murdoc-viewers",
+    }
+    operator_headers = {
+        "X-Forwarded-User": "operator@example.com",
+        "X-Forwarded-Groups": "murdoc-operators",
+    }
+
+    read = client.get("/api/control-plane/profiles", headers=viewer_headers)
+    denied_write = client.put(
+        "/api/control-plane/runtime-settings",
+        json={"opa_timeout_seconds": 0.5},
+        headers=viewer_headers,
+    )
+    allowed_write = client.put(
+        "/api/control-plane/runtime-settings",
+        json={"opa_timeout_seconds": 0.5},
+        headers=operator_headers,
+    )
+
+    assert read.status_code == 200
+    assert denied_write.status_code == 403
+    assert allowed_write.status_code == 200
 
 
 def test_health_and_readiness_endpoints():
@@ -339,6 +378,24 @@ def test_control_plane_gateway_routes_can_be_configured():
         json={"kind": "not-a-mode", "upstream_url": "http://tools.example"},
     )
     assert invalid.status_code == 400
+
+
+def test_hardening_status_reports_access_and_storage_posture(monkeypatch):
+    monkeypatch.setattr(gateway_server, "MURDOC_ADMIN_TOKEN", "test-admin-token")
+    monkeypatch.setattr(auth_module, "MURDOC_ADMIN_TOKEN", "test-admin-token")
+    client = client_for()
+
+    unauthorized = client.get("/api/control-plane/hardening-status")
+    authorized = client.get(
+        "/api/control-plane/hardening-status",
+        headers={"X-Murdoc-Admin-Token": "test-admin-token"},
+    )
+
+    assert unauthorized.status_code == 401
+    assert authorized.status_code == 200
+    payload = authorized.json()
+    assert "checks" in payload
+    assert any(item["id"] == "access-control" for item in payload["checks"])
 
 
 def test_openai_compatible_gateway_forwards_to_registered_llm_route(monkeypatch):

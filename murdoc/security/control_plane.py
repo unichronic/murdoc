@@ -8,15 +8,24 @@ import os
 import time
 from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
+
+from murdoc.security.config import (
+    MURDOC_AUDIT_RETENTION_DAYS,
+    MURDOC_CONTROL_PLANE_FILE,
+    MURDOC_DECISION_LEDGER_FILE,
+    MURDOC_DECISION_LEDGER_MAX_RECORDS,
+    MURDOC_GATEWAY_ROUTES_FILE,
+    MURDOC_RUNTIME_SETTINGS_FILE,
+)
 
 
 DEFAULT_POLICY_VERSION = os.getenv("MURDOC_POLICY_VERSION", "murdoc-local-v1")
 DEFAULT_CONFIG_VERSION = os.getenv("MURDOC_CONFIG_VERSION", "local-default-v1")
-DEFAULT_CONTROL_PLANE_FILE = os.getenv("MURDOC_CONTROL_PLANE_FILE", "").strip()
-DEFAULT_DECISION_LEDGER_FILE = os.getenv("MURDOC_DECISION_LEDGER_FILE", "").strip()
-DEFAULT_RUNTIME_SETTINGS_FILE = os.getenv("MURDOC_RUNTIME_SETTINGS_FILE", "").strip()
+DEFAULT_CONTROL_PLANE_FILE = MURDOC_CONTROL_PLANE_FILE
+DEFAULT_DECISION_LEDGER_FILE = MURDOC_DECISION_LEDGER_FILE
+DEFAULT_RUNTIME_SETTINGS_FILE = MURDOC_RUNTIME_SETTINGS_FILE
 
 GUARDRAIL_MODES = {"disabled", "advisory", "enforce", "advisory_high_risk"}
 TEST_CORPUS_PROFILES = {"baseline", "extended"}
@@ -236,7 +245,7 @@ def _default_gateway_routes() -> dict[str, GatewayRoute]:
 class GatewayRouteStore:
     """Upstream service registry for HTTP and OpenAI-compatible gateway modes."""
 
-    def __init__(self, config_file: str = os.getenv("MURDOC_GATEWAY_ROUTES_FILE", "").strip()):
+    def __init__(self, config_file: str = MURDOC_GATEWAY_ROUTES_FILE):
         self.config_file = config_file
         self._routes: dict[str, GatewayRoute] = _default_gateway_routes()
         self._load_from_disk()
@@ -293,9 +302,15 @@ class GatewayRouteStore:
 class DecisionLedger:
     """Bounded in-memory decision ledger with optional JSONL persistence."""
 
-    def __init__(self, max_records: int = 1000, log_file: str = DEFAULT_DECISION_LEDGER_FILE):
+    def __init__(
+        self,
+        max_records: int = MURDOC_DECISION_LEDGER_MAX_RECORDS,
+        log_file: str = DEFAULT_DECISION_LEDGER_FILE,
+        retention_days: int = MURDOC_AUDIT_RETENTION_DAYS,
+    ):
         self.max_records = max_records
         self.log_file = log_file
+        self.retention_days = max(1, retention_days)
         self._records: OrderedDict[str, dict[str, Any]] = OrderedDict()
 
     def append(self, record: dict[str, Any]) -> dict[str, Any]:
@@ -307,12 +322,12 @@ class DecisionLedger:
         }
         self._records[request_id] = stored
         self._records.move_to_end(request_id)
-        while len(self._records) > self.max_records:
-            self._records.popitem(last=False)
+        self._prune()
         self._write(stored)
         return stored
 
     def list_records(self, limit: int = 100) -> list[dict[str, Any]]:
+        self._prune()
         safe_limit = max(1, min(limit, self.max_records))
         return list(reversed(list(self._records.values())[-safe_limit:]))
 
@@ -342,6 +357,7 @@ class DecisionLedger:
         return filtered
 
     def get(self, request_id: str) -> dict[str, Any] | None:
+        self._prune()
         return self._records.get(request_id)
 
     def usage_summary(self, *, tenant_id: str | None = None, app_id: str | None = None) -> dict[str, Any]:
@@ -415,6 +431,18 @@ class DecisionLedger:
         with open(self.log_file, "a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, sort_keys=True))
             handle.write("\n")
+
+    def _prune(self) -> None:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=self.retention_days)
+        for request_id, record in list(self._records.items()):
+            try:
+                timestamp = datetime.fromisoformat(str(record.get("timestamp", "")).replace("Z", "+00:00"))
+            except ValueError:
+                timestamp = datetime.now(timezone.utc)
+            if timestamp < cutoff:
+                self._records.pop(request_id, None)
+        while len(self._records) > self.max_records:
+            self._records.popitem(last=False)
 
 
 class AlertLedger:

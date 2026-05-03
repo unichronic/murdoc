@@ -24,8 +24,32 @@ function useStats() {
     return stats
 }
 
+function useHardeningStatus() {
+    const [hardening, setHardening] = useState({
+        production_ready: false,
+        deployment_profile: 'development',
+        auth_mode: 'Console password',
+        checks: [],
+    })
+
+    useEffect(() => {
+        const fetch_ = async () => {
+            try {
+                const response = await fetch('/api/control-plane/hardening-status', { credentials: 'same-origin' })
+                if (response.ok) setHardening(await response.json())
+            } catch { }
+        }
+        fetch_()
+        const id = setInterval(fetch_, 15000)
+        return () => clearInterval(id)
+    }, [])
+
+    return hardening
+}
+
 export default function Dashboard() {
     const liveStats = useStats()
+    const hardening = useHardeningStatus()
     const formatNumber = value => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '-'
     const sourceLabel = liveStats.source === 'prometheus'
         ? 'Metrics'
@@ -77,6 +101,27 @@ export default function Dashboard() {
                         <a href="http://localhost:3000" target="_blank" rel="noreferrer">Grafana</a>
                         <a href="http://localhost:9090" target="_blank" rel="noreferrer">Prometheus</a>
                         <a href="http://localhost:9093" target="_blank" rel="noreferrer">Alertmanager</a>
+                    </div>
+                </div>
+
+                <div className="hardening-panel">
+                    <div className="hardening-header">
+                        <div>
+                            <h3>Enterprise Readiness</h3>
+                            <p>Operational posture for access control, persistence, audit retention, deployment hardening, and observability.</p>
+                        </div>
+                        <span className={`hardening-badge ${hardening.production_ready ? 'hardening-badge-ready' : 'hardening-badge-attention'}`}>
+                            {hardening.production_ready ? 'Ready' : 'Needs attention'}
+                        </span>
+                    </div>
+                    <div className="hardening-grid">
+                        {(hardening.checks || []).map(check => (
+                            <div key={check.id} className={`hardening-check hardening-${check.status}`}>
+                                <span>{check.label}</span>
+                                <strong>{check.status === 'ready' ? 'Ready' : check.status === 'partial' ? 'Partial' : 'Attention'}</strong>
+                                <p>{check.detail}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
 

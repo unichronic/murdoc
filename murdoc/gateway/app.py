@@ -4,9 +4,8 @@
 import sys
 import os
 import csv
-import base64
+import asyncio
 import hashlib
-import hmac
 import io
 import json
 import subprocess
@@ -23,6 +22,16 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 
+from murdoc.security.auth import (
+    CONSOLE_SESSION_COOKIE,
+    CONSOLE_SESSION_TTL_SECONDS,
+    authenticate_local_password,
+    authenticate_request,
+    auth_mode_label,
+    auth_required,
+    create_console_session,
+    has_role,
+)
 from murdoc.security.observability import install_observability
 from murdoc.security.control_plane import (
     alert_ledger,
@@ -41,8 +50,15 @@ from murdoc.security.config import (
     AGENT_BACKEND_TIMEOUT,
     AGENT_BACKEND_URL,
     AGENT_MEMORY_CONTEXT_URL,
-    MURDOC_ADMIN_TOKEN,
-    constant_time_equals,
+    MURDOC_AUDIT_RETENTION_DAYS,
+    MURDOC_AUTH_MODE,
+    MURDOC_CONTROL_PLANE_FILE,
+    MURDOC_DECISION_LEDGER_FILE,
+    MURDOC_DEPLOYMENT_PROFILE,
+    MURDOC_GATEWAY_ROUTES_FILE,
+    MURDOC_REQUIRE_PERSISTENCE_FOR_PRODUCTION,
+    MURDOC_RUNTIME_SETTINGS_FILE,
+    MURDOC_SESSION_SECURE,
 )
 
 import httpx
@@ -140,8 +156,6 @@ SENSITIVE_FORWARD_HEADERS = {
 }
 
 CONTROL_PLANE_PREFIX = "/api/control-plane"
-CONSOLE_SESSION_COOKIE = "murdoc_console_session"
-CONSOLE_SESSION_TTL_SECONDS = 8 * 60 * 60
 
 
 def _safe_identifier(value: str | None, default: str = "") -> str:
@@ -170,64 +184,22 @@ def _forward_headers(request: Request) -> dict[str, str]:
     }
 
 
-def _control_plane_authorized(request: Request) -> bool:
-    if not MURDOC_ADMIN_TOKEN:
-        return True
-    if _console_session_valid(request):
-        return True
-    supplied = request.headers.get("X-Murdoc-Admin-Token", "").strip()
-    authorization = request.headers.get("Authorization", "").strip()
-    if not supplied and authorization.startswith("Bearer "):
-        supplied = authorization.removeprefix("Bearer ").strip()
-    return bool(supplied) and constant_time_equals(supplied, MURDOC_ADMIN_TOKEN)
+def _required_control_role(request: Request) -> str:
+    path = request.url.path
+    if path.endswith("/audit-export") or path.endswith("/test-run"):
+        return "operator"
+    if request.method in {"GET", "HEAD", "OPTIONS"}:
+        return "viewer"
+    return "operator"
 
 
-def _session_secret() -> str:
-    return MURDOC_ADMIN_TOKEN or "murdoc-local-dev-session"
-
-
-def _sign_session(payload: str) -> str:
-    return hmac.new(_session_secret().encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
-
-
-def _create_console_session() -> str:
-    payload = json.dumps(
-        {"sub": "admin", "exp": int(time.time()) + CONSOLE_SESSION_TTL_SECONDS},
-        separators=(",", ":"),
-        sort_keys=True,
-    )
-    encoded = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
-    return f"{encoded}.{_sign_session(encoded)}"
-
-
-def _decode_console_session(value: str) -> dict | None:
-    if "." not in value:
-        return None
-    encoded, supplied_sig = value.rsplit(".", 1)
-    if not constant_time_equals(supplied_sig, _sign_session(encoded)):
-        return None
-    padded = encoded + ("=" * (-len(encoded) % 4))
-    try:
-        payload = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8"))
-    except (ValueError, json.JSONDecodeError):
-        return None
-    if int(payload.get("exp", 0)) < int(time.time()):
-        return None
-    return payload
-
-
-def _console_session_valid(request: Request) -> bool:
-    value = request.cookies.get(CONSOLE_SESSION_COOKIE, "")
-    return _decode_console_session(value) is not None
-
-
-def _set_console_cookie(response: JSONResponse) -> JSONResponse:
+def _set_console_cookie(response: JSONResponse, principal) -> JSONResponse:
     response.set_cookie(
         CONSOLE_SESSION_COOKIE,
-        _create_console_session(),
+        create_console_session(principal),
         max_age=CONSOLE_SESSION_TTL_SECONDS,
         httponly=True,
-        secure=False,
+        secure=MURDOC_SESSION_SECURE,
         samesite="strict",
         path="/",
     )
@@ -237,6 +209,62 @@ def _set_console_cookie(response: JSONResponse) -> JSONResponse:
 def _clear_console_cookie(response: JSONResponse) -> JSONResponse:
     response.delete_cookie(CONSOLE_SESSION_COOKIE, path="/", samesite="strict")
     return response
+
+
+def _hardening_status() -> dict:
+    persistence_files = {
+        "route profiles": MURDOC_CONTROL_PLANE_FILE,
+        "gateway routes": MURDOC_GATEWAY_ROUTES_FILE,
+        "runtime settings": MURDOC_RUNTIME_SETTINGS_FILE,
+        "decision ledger": MURDOC_DECISION_LEDGER_FILE,
+    }
+    persistence_ready = all(
+        bool(path)
+        for name, path in persistence_files.items()
+        if name != "decision ledger"
+    )
+    audit_ready = bool(MURDOC_DECISION_LEDGER_FILE) and MURDOC_AUDIT_RETENTION_DAYS > 0
+    production_profile = MURDOC_DEPLOYMENT_PROFILE == "production"
+    auth_ready = auth_required() and MURDOC_AUTH_MODE in {"local", "proxy", "oidc"}
+    checks = [
+        {
+            "id": "access-control",
+            "label": "Access control",
+            "status": "ready" if auth_ready else "attention",
+            "detail": f"{auth_mode_label()} with role-based control-plane access.",
+        },
+        {
+            "id": "configuration-storage",
+            "label": "Configuration storage",
+            "status": "ready" if persistence_ready else "attention",
+            "detail": "Route, profile, and runtime settings are persisted." if persistence_ready else "Configuration is currently in-memory unless mounted state files are configured.",
+        },
+        {
+            "id": "audit-retention",
+            "label": "Audit retention",
+            "status": "ready" if audit_ready else "attention",
+            "detail": f"Decision records are retained for {MURDOC_AUDIT_RETENTION_DAYS} days." if audit_ready else "Decision records are bounded in memory; persistent audit retention is not enabled.",
+        },
+        {
+            "id": "deployment-hardening",
+            "label": "Deployment hardening",
+            "status": "ready" if production_profile and (persistence_ready or not MURDOC_REQUIRE_PERSISTENCE_FOR_PRODUCTION) else "attention",
+            "detail": "Production profile is enabled." if production_profile else "Development profile is active.",
+        },
+        {
+            "id": "observability",
+            "label": "Observability",
+            "status": "ready" if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip() else "partial",
+            "detail": "External telemetry export is configured." if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip() else "Local metrics are available; external telemetry export is not configured.",
+        },
+    ]
+    return {
+        "deployment_profile": MURDOC_DEPLOYMENT_PROFILE,
+        "auth_mode": auth_mode_label(),
+        "audit_retention_days": MURDOC_AUDIT_RETENTION_DAYS,
+        "production_ready": all(item["status"] == "ready" for item in checks),
+        "checks": checks,
+    }
 
 
 def _join_upstream_url(upstream_url: str, path: str = "") -> str:
@@ -342,7 +370,7 @@ async def _load_backend_memory_contexts() -> list[ContextEnvelope]:
 def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        await warmup_presidio()
+        asyncio.create_task(warmup_presidio())
         yield
 
     app = FastAPI(title="Murdoc Gateway", lifespan=lifespan)
@@ -366,8 +394,14 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def control_plane_admin_auth(request: Request, call_next):
-        if request.url.path.startswith(CONTROL_PLANE_PREFIX) and not _control_plane_authorized(request):
-            return JSONResponse(status_code=401, content={"detail": "control-plane admin token required"})
+        if request.url.path.startswith(CONTROL_PLANE_PREFIX):
+            auth_result = authenticate_request(request)
+            if not auth_result.authenticated:
+                return JSONResponse(status_code=401, content={"detail": "authentication required"})
+            required_role = _required_control_role(request)
+            if not has_role(auth_result.principal, required_role):
+                return JSONResponse(status_code=403, content={"detail": f"{required_role} role required"})
+            request.state.principal = auth_result.principal
         return await call_next(request)
 
     @app.get("/healthz")
@@ -379,6 +413,7 @@ def create_app() -> FastAPI:
         return {
             "status": "ready",
             "checks": runtime.readiness_checks(),
+            "hardening": _hardening_status(),
             "profiles": {
                 "active": "default-agent",
                 "count": len(control_plane.list_profiles()),
@@ -388,26 +423,40 @@ def create_app() -> FastAPI:
     @app.get("/api/auth/status")
     async def auth_status():
         return {
-            "auth_required": bool(MURDOC_ADMIN_TOKEN),
-            "authenticated": not bool(MURDOC_ADMIN_TOKEN),
+            "auth_required": auth_required(),
+            "authenticated": not auth_required(),
+            "mode": auth_mode_label(),
+            "supports_password": MURDOC_AUTH_MODE in {"", "local"} or (MURDOC_AUTH_MODE == "local"),
         }
 
     @app.get("/api/auth/me")
     async def auth_me(request: Request):
-        authenticated = not bool(MURDOC_ADMIN_TOKEN) or _console_session_valid(request)
+        auth_result = authenticate_request(request)
+        principal = auth_result.principal
         return {
-            "auth_required": bool(MURDOC_ADMIN_TOKEN),
-            "authenticated": authenticated,
-            "subject": "admin" if authenticated else "",
+            "auth_required": auth_required(),
+            "authenticated": auth_result.authenticated,
+            "mode": auth_mode_label(),
+            "supports_password": MURDOC_AUTH_MODE in {"", "local"} or (MURDOC_AUTH_MODE == "local"),
+            "subject": principal.subject if principal else "",
+            "role": principal.role if principal else "",
         }
 
     @app.post("/api/auth/login")
     async def auth_login(body: LoginRequest):
-        if not MURDOC_ADMIN_TOKEN:
-            return {"authenticated": True, "subject": "local"}
-        if not constant_time_equals(body.password, MURDOC_ADMIN_TOKEN):
-            raise HTTPException(status_code=401, detail="invalid credentials")
-        return _set_console_cookie(JSONResponse({"authenticated": True, "subject": "admin"}))
+        auth_result = authenticate_local_password(body.password)
+        if not auth_result.authenticated or auth_result.principal is None:
+            raise HTTPException(status_code=401, detail=auth_result.reason or "invalid credentials")
+        return _set_console_cookie(
+            JSONResponse(
+                {
+                    "authenticated": True,
+                    "subject": auth_result.principal.subject,
+                    "role": auth_result.principal.role,
+                }
+            ),
+            auth_result.principal,
+        )
 
     @app.post("/api/auth/logout")
     async def auth_logout():
@@ -700,6 +749,10 @@ def create_app() -> FastAPI:
             tenant_id=tenant_id or None,
             app_id=app_id or None,
         )
+
+    @app.get("/api/control-plane/hardening-status")
+    async def hardening_status():
+        return _hardening_status()
 
     @app.get("/api/control-plane/audit-export")
     async def audit_export(
