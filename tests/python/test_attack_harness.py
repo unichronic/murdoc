@@ -113,6 +113,8 @@ def test_fuzzer_extended_profile_blocks_gateway_core_attacks(lab):
     assert summary["total"] >= len(build_payload_suite("extended"))
     assert summary["prevention_rate"] >= 95.0
     assert summary["false_positives"] == 0
+    assert summary["attribution_errors"] == 0
+    assert summary["block_layers"] == {"opa": 96}
 
 
 def test_fuzzer_stateful_runner_catches_raw_memory_poisoning(lab):
@@ -205,6 +207,35 @@ def test_fuzzer_marks_provider_layer_errors_as_run_errors(monkeypatch):
 
     assert "semantic" in result.error
     assert summary["errors"] == 1
+    assert summary["owasp_pass"] is False
+
+
+def test_fuzzer_marks_wrong_primary_block_layer_as_attribution_error(monkeypatch):
+    payload = build_payload_suite("baseline")[0]
+
+    def fake_fire_payload(url, payload, request_id):
+        return (
+            200,
+            {
+                "blocked": True,
+                "gateway": "runtime",
+                "layers": {
+                    "lakera": {"status": "block", "message": "Blocked by prompt scanner"},
+                    "presidio_input": {"status": "pass"},
+                    "opa": {"status": "pass"},
+                },
+            },
+            12.0,
+        )
+
+    monkeypatch.setattr(agent_fuzzer, "fire_payload", fake_fire_payload)
+
+    result = agent_fuzzer.evaluate_payload("http://gateway.invalid", payload, reset_between=False)
+    summary = agent_fuzzer.summarize_results([result])
+
+    assert "expected_block_layer=opa" in result.attribution_error
+    assert "unexpected_lakera_primary_block" in result.error
+    assert summary["attribution_errors"] == 1
     assert summary["owasp_pass"] is False
 
 

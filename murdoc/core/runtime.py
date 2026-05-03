@@ -166,6 +166,20 @@ def _lakera_advisory_reason(text: str, auth: AuthEnvelope) -> str | None:
     return None
 
 
+def _policy_should_own_primary_block(decision: PolicyDecision) -> bool:
+    if decision.allowed:
+        return False
+
+    violations = {violation.reason for violation in decision.violations}
+    prompt_only = {"prompt_injection", "goal_scope_change"}
+    if violations and violations.issubset(prompt_only):
+        return False
+    if violations - prompt_only:
+        return True
+
+    return decision.reason not in prompt_only
+
+
 def _should_preserve_authorized_action_parameters(text: str, auth: AuthEnvelope) -> bool:
     effective_auth = normalize_auth(auth)
     intent = extract_semantic_intent(text, prompt_injection=False)
@@ -687,9 +701,20 @@ class MurdocRuntime:
                     f"Request ID: {lakera_result.request_uuid or 'unavailable'}"
                 ),
             }
+        elif lakera_result.error:
+            if self.obs is not None:
+                self.obs.record_provider_event("lakera", "unavailable")
+            record_lakera("skipped", "lakera_unavailable_optional")
+            result["layers"]["lakera"] = {
+                "status": "unavailable",
+                "message": (
+                    f"Lakera Guard unavailable: {lakera_result.error}\n"
+                    "Optional for this route; continuing to policy evaluation"
+                ),
+            }
         else:
             if self.obs is not None:
-                self.obs.record_provider_event("lakera", "error" if lakera_result.error else "pass")
+                self.obs.record_provider_event("lakera", "pass")
             record_lakera("pass")
             result["layers"]["lakera"] = {
                 "status": "pass",
@@ -794,6 +819,22 @@ class MurdocRuntime:
             "violations": [violation.reason for violation in policy_decision.violations],
             "engine": policy_decision.policy_engine,
         }
+        if (
+            injection_detected
+            and policy_enforced
+            and _policy_should_own_primary_block(policy_decision)
+        ):
+            injection_detected = False
+            advisory_reason = "policy_primary_decision"
+            record_lakera("flag", advisory_reason)
+            result["layers"]["lakera"] = {
+                "status": "flag",
+                "message": (
+                    "Lakera flagged request; concrete policy violations own the block\n"
+                    f"Reason: {advisory_reason}\n"
+                    f"Request ID: {lakera_result.request_uuid or 'unavailable'}"
+                ),
+            }
         if not injection_detected and not policy_decision.allowed and policy_enforced:
             record_tier1("block")
         elif lakera_result.flagged or (not policy_decision.allowed and not policy_enforced):
