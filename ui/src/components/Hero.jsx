@@ -4,16 +4,16 @@ export default function Hero({ setCurrentView }) {
   return (
     <section className="hero">
       <div className="container hero-inner">
-        <p className="hero-pill">Enterprise AI Security & Governance</p>
+        <p className="hero-pill">AI Agent Security Gateway</p>
         <h1 className="hero-title">
-          <span className="accent">Agentic Risks.</span>
+          <span className="accent">Secure every agent</span>
           <br />
-          Neutralized.
+          before it acts.
         </h1>
         <p className="hero-lead">
-          Route OpenAI-compatible LLM calls, HTTP tool calls, and MCP sessions
-          through one policy runtime with guardrails, redaction, audit records,
-          and regression testing for agent workflows.
+          Murdoc routes LLM calls, HTTP tools, and MCP sessions through one
+          self-hosted policy runtime with prompt-injection checks, PII
+          redaction, guardrail orchestration, and audit records.
         </p>
         <div className="hero-actions" style={{ marginTop: '2rem' }}>
           <button

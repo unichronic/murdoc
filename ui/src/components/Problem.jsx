@@ -5,26 +5,26 @@ export default function Problem() {
     <section id="problem" className="section section-alt">
       <div className="container">
         <header className="section-header">
-          <h2>AI agents are powerful. They are also dangerously obedient.</h2>
+          <h2>Agents need a security boundary outside the model.</h2>
           <p>
-            These incidents represent the &quot;Agent Goal Hijacking&quot; and &quot;Tool Misuse&quot;
-            vulnerabilities now prioritized in the OWASP Top 10 for Agentic Applications 2026. Without
-            a security proxy, an agent&apos;s autonomy becomes a direct, high-speed conduit for
-            corporate espionage.
+            Prompt injection is only the visible part of the problem. Production
+            agents also read untrusted context, call internal APIs, receive MCP
+            tool output, and make decisions with credentials your organization
+            must govern.
           </p>
         </header>
         <div className="cards">
           <article className="card">
-            <h3>Goal hijacking &amp; prompt injection</h3>
-            <p>Hidden instructions in emails, PDFs, and logs override system goals and leak secrets.</p>
+            <h3>Indirect prompt injection</h3>
+            <p>Malicious instructions hidden in tickets, pages, files, or tool responses can enter the model as trusted context.</p>
           </article>
           <article className="card">
-            <h3>Context &amp; memory poisoning</h3>
-            <p>Long-horizon attacks poison what the agent remembers and trusts over time.</p>
+            <h3>Tool misuse</h3>
+            <p>A manipulated agent can call write APIs, update records, or expose internal data unless tool actions are checked at the gateway.</p>
           </article>
           <article className="card">
-            <h3>Tool misuse &amp; privilege abuse</h3>
-            <p>Agents are tricked into misusing tools or escalating to admin identities.</p>
+            <h3>Audit gaps</h3>
+            <p>Without a shared gateway layer, every framework and agent leaves different evidence for what was allowed, blocked, or redacted.</p>
           </article>
         </div>
       </div>

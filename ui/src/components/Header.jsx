@@ -5,10 +5,10 @@ export default function Header({ currentView, setCurrentView }) {
     <header className="site-header">
       <div className="container header-inner">
         <div className="logo" onClick={() => setCurrentView('main')} style={{ cursor: 'pointer' }}>
-          <div className="logo-mark">AV</div>
+          <div className="logo-mark">M</div>
           <div className="logo-text">
             <span className="logo-title">Murdoc</span>
-            <span className="logo-subtitle">Protected AI Layer</span>
+            <span className="logo-subtitle">AI Security Gateway</span>
           </div>
         </div>
         <nav className="nav">

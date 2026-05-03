@@ -35,18 +35,18 @@ export default function Dashboard() {
     ]
 
     const activities = [
-        { time: 'Live', agent: 'Murdoc Gateway', event: 'Gateway protection layers active', status: 'cleared' },
-        { time: 'Ready', agent: 'Red Team Harness', event: '11 OWASP LLM payloads available for gateway testing', status: 'blocked' },
-        { time: 'Ready', agent: 'MCP Interceptor', event: 'Secure call_tool() wrapper available for MCP clients', status: 'scrubbed' },
-        { time: 'Live', agent: 'Observability', event: 'Metrics, traces, and safe security events wired into the gateway', status: 'cleared' },
+        { time: 'Live', agent: 'Murdoc Gateway', event: 'Shared security runtime active across agent traffic', status: 'cleared' },
+        { time: 'Ready', agent: 'Attack Lab', event: 'OWASP LLM payloads available for gateway regression testing', status: 'blocked' },
+        { time: 'Ready', agent: 'MCP Gateway', event: 'Tool discovery, tool calls, and tool output can be inspected', status: 'scrubbed' },
+        { time: 'Live', agent: 'Observability', event: 'Metrics, audit summaries, and security events wired into the gateway', status: 'cleared' },
     ]
 
     return (
         <section className="dashboard" id="dashboard">
             <div className="container">
                 <header className="section-header">
-                    <h2>Security Operations Dashboard</h2>
-                    <p>Real-time visibility into your agent infrastructure's security posture.</p>
+                    <h2>Gateway Security Dashboard</h2>
+                    <p>Visibility into agent traffic, policy decisions, redaction, and attack-lab results.</p>
                 </header>
 
                 <div className="dashboard-grid">

@@ -62,8 +62,9 @@ export default function RedTeamPanel() {
                         <span className="rt-badge-label">OWASP LLM Top 10</span>
                     </div>
                     <p>
-                        Fire 11 adversarial payloads across 4 attack vectors through the Murdoc Gateway.
-                        Each payload is marked <strong>Blocked</strong> (gateway stopped it) or <strong>Bypassed</strong> (slipped through).
+                        Run adversarial payloads through the Murdoc Gateway and
+                        review which requests were <strong>Blocked</strong> by
+                        policy or <strong>Bypassed</strong> for further tuning.
                     </p>
                 </header>
 
@@ -154,7 +155,7 @@ export default function RedTeamPanel() {
 
                 {!running && !done && (
                     <div className="rt-empty">
-                        <p>Press <strong>Run Red Team Scan</strong> to fire all 11 OWASP payloads through the gateway.</p>
+                        <p>Press <strong>Run Red Team Scan</strong> to test adversarial payloads through the gateway.</p>
                     </div>
                 )}
             </div>

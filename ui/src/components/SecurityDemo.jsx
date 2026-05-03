@@ -115,7 +115,8 @@ export default function SecurityDemo() {
         <header className="demo-header">
           <h2>Security Playground</h2>
           <p>
-            Experience how Murdoc protects your infrastructure against the most common GenAI vulnerabilities.
+            See how gateway-layer checks handle prompt injection and sensitive
+            data before an agent response or tool action continues.
           </p>
         </header>
 
@@ -174,7 +175,7 @@ export default function SecurityDemo() {
 
           <div className="demo-agent">
             <span className="demo-label">
-              AI Agent {isRaw ? '(Unprotected)' : '(Vault Guardrails Active)'}
+              AI Agent {isRaw ? '(Unprotected)' : '(Murdoc Guardrails Active)'}
             </span>
             <div className="payload-box">
               <div className="payload-header">INPUT CONTEXT</div>
@@ -207,7 +208,7 @@ export default function SecurityDemo() {
           </div>
 
           <div className="demo-after-security">
-            <span className="demo-label">Security Logic</span>
+            <span className="demo-label">Gateway Decision</span>
             {isRaw ? (
               <div className="vulnerability-box">
                 <p>

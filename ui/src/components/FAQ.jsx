@@ -3,24 +3,24 @@ import './FAQ.css'
 
 const ITEMS = [
   {
-    q: 'What is the Security Proxy Layer?',
-    a: 'A protective layer that sits between your AI agents and the world. It scans incoming data for hidden malicious instructions, enforces behavioral guardrails on tool use, and embeds canary markers to detect data leaks in real time.',
+    q: 'What is Murdoc?',
+    a: 'Murdoc is an AI security gateway for agents, tools, and MCP traffic. It sits between agent runtimes and the systems they call so teams can inspect, redact, authorize, and audit risky agent traffic in one place.',
   },
   {
-    q: 'How does it protect against prompt injection and goal hijacking?',
-    a: 'All incoming content - emails, PDFs, logs, tickets - is inspected before the agent sees it. Prompt-injection patterns and hidden goals are detected and stripped. Tool calls are evaluated against policy regardless of what the model decided.',
+    q: 'How does it protect against prompt injection?',
+    a: 'Murdoc checks prompts, context, and tool output before they continue through the agent workflow. Tool calls are also evaluated against route policy, so a manipulated model does not become the security boundary.',
   },
   {
-    q: 'What are canary markers?',
-    a: 'Invisible markers embedded in sensitive data. If that data is ever leaked through an agent (e.g. in a response or log), the system detects the canary and can trigger alerts, shutdowns, or incident timelines.',
+    q: 'Where does it sit?',
+    a: 'Murdoc can sit in front of OpenAI-compatible LLM calls, HTTP tool/API calls, and MCP sessions. The goal is to give platform teams one gateway layer instead of custom wrappers inside every agent.',
   },
   {
     q: 'Do I need to change my AI models or orchestrator?',
-    a: 'No. The proxy sits in front of your existing stack. You route traffic through it; no retraining or model changes required. It works with LangChain, LlamaIndex, custom orchestrators, and more.',
+    a: 'No model changes are required. Agents route traffic through Murdoc using standard integration modes such as an OpenAI-compatible base URL, an HTTP proxy route, or an MCP gateway.',
   },
   {
-    q: 'Is this aligned with OWASP and agent security standards?',
-    a: 'Yes. We align with OWASP Top 10 for Agentic Applications 2026, including Agent Goal Hijacking, Tool Misuse, and context/memory poisoning. The proxy is designed for security teams and builders alike.',
+    q: 'Is Murdoc open source?',
+    a: 'Yes. Murdoc is open source and self-hosted so prompt traffic, tool output, policies, and audit records can stay inside the organization running it.',
   },
 ]
 
@@ -32,7 +32,7 @@ export default function FAQ() {
       <div className="container">
         <header className="section-header faq-header">
           <h2>All your questions answered</h2>
-          <p>Common questions about the Security Proxy Layer and how it keeps your AI agents protected.</p>
+          <p>Common questions about deploying an AI security gateway for agent traffic.</p>
         </header>
         <div className="faq-list">
           {ITEMS.map((item, i) => (

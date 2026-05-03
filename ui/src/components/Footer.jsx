@@ -5,8 +5,8 @@ export default function Footer() {
     <footer className="site-footer">
       <div className="container footer-inner">
         <div className="footer-left">
-          <span className="logo-title">sandbox</span>
-          <span className="footer-tagline">Not just powerful AI. Protected AI.</span>
+          <span className="logo-title">Murdoc</span>
+          <span className="footer-tagline">Policy enforcement for agent traffic.</span>
         </div>
         <div className="footer-links">
           <a href="#demo" className="footer-link">Demo</a>

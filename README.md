@@ -1,17 +1,17 @@
 # Murdoc
 
-Murdoc is a self-hosted security gateway for AI applications and agent tool
-traffic. It gives teams one place to inspect requests, authorize tool calls,
-redact sensitive data, record decisions, and test agent workflows against
-realistic attacks.
+Murdoc is an AI security gateway for agents, tools, and MCP traffic. It gives
+security and platform teams one self-hosted control point to inspect requests,
+authorize tool calls, redact sensitive data, enforce policy, and audit agent
+workflows without rewriting the agent stack.
 
 ![Architecture](assets/architecture.svg)
 
 ## What It Does
 
-- Provides an OpenAI-compatible gateway endpoint for agent LLM calls.
-- Provides an HTTP tool/API gateway for agent tool calls and internal services.
-- Provides an MCP gateway for MCP-compatible agents and tools.
+- Protects OpenAI-compatible LLM calls before they reach model providers.
+- Protects HTTP tool/API calls before agents can touch internal services.
+- Protects MCP sessions before tool output reaches the model context window.
 - Runs all three modes through the same policy, guardrail, redaction, and audit runtime.
 - Filters available MCP tools before a model or agent can select them.
 - Authorizes every tool/API call before it reaches the downstream server.
@@ -19,6 +19,35 @@ realistic attacks.
 - Records decisions without storing raw prompts, raw secrets, or raw responses.
 - Includes a local attack lab for regression testing gateway behavior.
 - Ships a small dashboard, control plane, and local observability stack for development.
+
+Murdoc is open source and designed to run inside the organization's own
+environment, where prompt traffic, tool outputs, policies, and audit records can
+stay under the team's control.
+
+## Why Murdoc
+
+Most AI gateways focus on model routing, provider abstraction, caching, retries,
+and cost controls. Those are useful, but agent risk is different: agents read
+untrusted context, call tools, touch internal APIs, and carry tool output back
+into the model context window.
+
+Murdoc is built for that security boundary. It gives teams a gateway-layer
+place to enforce policy before an agent acts, inspect tool output before the
+model sees it, redact sensitive data before it leaves the runtime, and preserve
+audit evidence without turning every agent codebase into a custom security
+project.
+
+## Where It Fits
+
+- **Security teams** get a control point for prompt injection, sensitive data,
+  tool misuse, policy enforcement, and audit review.
+- **Platform teams** get one gateway surface for model calls, HTTP tools, and
+  MCP sessions instead of a different security wrapper per framework.
+- **Agent developers** keep using standard integration paths: OpenAI-compatible
+  clients, HTTP APIs, and MCP-compatible tools.
+- **Enterprise maintainers** can run it self-hosted, keep policies close to
+  their environment, and regression-test agent behavior with the local attack
+  lab.
 
 ## How It Works
 
