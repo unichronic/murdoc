@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/plugins/security/presidio"
+	"github.com/murdoc-ai/murdoc/core/schemas"
+	"github.com/murdoc-ai/murdoc/plugins/security/presidio"
 )
 
 // Mock Presidio server for testing
@@ -104,12 +104,12 @@ func TestPresidioMiddleware_DetectPII(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := &schemas.BifrostChatRequest{
+			req := &schemas.MurdocChatRequest{
 				Model: "gpt-4",
 				Messages: []schemas.Message{{Role: "user", Content: tt.content}},
 			}
 
-			ctx := schemas.NewBifrostContext(context.Background(), 0)
+			ctx := schemas.NewMurdocContext(context.Background(), 0)
 			result := middleware.PreLLMHook(ctx, req, nil)
 
 			if tt.expectBlock {
@@ -158,13 +158,13 @@ func TestPresidioMiddleware_RedactOutput(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp := &schemas.BifrostChatResponse{
+			resp := &schemas.MurdocChatResponse{
 				Choices: []schemas.Choice{
 					{Message: schemas.Message{Content: tt.response}},
 				},
 			}
 
-			ctx := schemas.NewBifrostContext(context.Background(), 0)
+			ctx := schemas.NewMurdocContext(context.Background(), 0)
 			result := middleware.PostLLMHook(ctx, nil, resp, nil)
 
 			if tt.expectRedacted {
@@ -191,12 +191,12 @@ func TestPresidioMiddleware_ServiceUnavailable(t *testing.T) {
 		t.Fatalf("Failed to create Presidio middleware: %v", err)
 	}
 
-	req := &schemas.BifrostChatRequest{
+	req := &schemas.MurdocChatRequest{
 		Model: "gpt-4",
 		Messages: []schemas.Message{{Role: "user", Content: "Test"}},
 	}
 
-	ctx := schemas.NewBifrostContext(context.Background(), 0)
+	ctx := schemas.NewMurdocContext(context.Background(), 0)
 	result := middleware.PreLLMHook(ctx, req, nil)
 
 	// Should fail gracefully or allow request through (depending on implementation)

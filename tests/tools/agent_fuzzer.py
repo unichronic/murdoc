@@ -1,5 +1,5 @@
 """
-Concurrent red-team runner for AgentVault.
+Concurrent red-team runner for Murdoc.
 """
 
 import argparse
@@ -22,11 +22,11 @@ except ImportError:  # pragma: no cover
 PAYLOADS = build_payload_suite("baseline")
 
 
-GATEWAY_URL = os.getenv("AGENTVAULT_GATEWAY_URL", "http://localhost:8000/api/process")
-RAW_AGENT_URL = os.getenv("AGENTVAULT_AGENT_URL", "http://localhost:8001/process")
-AGENT_AUDIT = os.getenv("AGENTVAULT_AUDIT_URL", "http://localhost:8001/audit")
-AGENT_RESET = os.getenv("AGENTVAULT_RESET_URL", "http://localhost:8001/reset")
-REQUEST_TIMEOUT = float(os.getenv("AGENTVAULT_REQUEST_TIMEOUT", "15"))
+GATEWAY_URL = os.getenv("MURDOC_GATEWAY_URL", "http://localhost:8000/api/process")
+RAW_AGENT_URL = os.getenv("MURDOC_AGENT_URL", "http://localhost:8001/process")
+AGENT_AUDIT = os.getenv("MURDOC_AUDIT_URL", "http://localhost:8001/audit")
+AGENT_RESET = os.getenv("MURDOC_RESET_URL", "http://localhost:8001/reset")
+REQUEST_TIMEOUT = float(os.getenv("MURDOC_REQUEST_TIMEOUT", "15"))
 
 
 @dataclass
@@ -344,7 +344,7 @@ def print_stateful_report(results: list[ScenarioResult], label: str) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="AgentVault red-team runner")
+    parser = argparse.ArgumentParser(description="Murdoc red-team runner")
     parser.add_argument("--mode", choices=["gateway", "raw", "compare"], default="gateway")
     parser.add_argument("--profile", choices=["baseline", "extended"], default="baseline")
     parser.add_argument("--iterations", type=int, default=1)

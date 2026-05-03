@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: AgentVault
+  - name: Murdoc
     orgId: 1
-    folder: AgentVault
+    folder: Murdoc
     type: file
     disableDeletion: false
     editable: true

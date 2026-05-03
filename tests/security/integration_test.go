@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/murdoc-ai/murdoc/core"
+	"github.com/murdoc-ai/murdoc/core/schemas"
 )
 
 func TestSecurityPipeline_FullFlow(t *testing.T) {
@@ -14,7 +14,7 @@ func TestSecurityPipeline_FullFlow(t *testing.T) {
 	}
 
 	// Load config with all security plugins enabled
-	config := &schemas.BifrostConfig{
+	config := &schemas.MurdocConfig{
 		Plugins: []schemas.PluginConfig{
 			{
 				Name:    "opa",
@@ -37,9 +37,9 @@ func TestSecurityPipeline_FullFlow(t *testing.T) {
 		},
 	}
 
-	client, err := bifrost.NewBifrost(config)
+	client, err := murdoc.NewMurdoc(config)
 	if err != nil {
-		t.Fatalf("Failed to create Bifrost client: %v", err)
+		t.Fatalf("Failed to create Murdoc client: %v", err)
 	}
 	defer client.Close()
 
@@ -76,12 +76,12 @@ func TestSecurityPipeline_FullFlow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := &schemas.BifrostChatRequest{
+			req := &schemas.MurdocChatRequest{
 				Model: "gpt-4",
 				Messages: []schemas.Message{{Role: "user", Content: tt.input}},
 			}
 
-			ctx := schemas.NewBifrostContext(context.Background(), 0)
+			ctx := schemas.NewMurdocContext(context.Background(), 0)
 			resp, err := client.ChatCompletion(ctx, req)
 
 			if tt.expectBlocked {

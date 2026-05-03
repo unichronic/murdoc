@@ -1,0 +1,49 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: murdoc/gateway:local
+    environment:
+      GATEWAY_HOST: ${GATEWAY_HOST:-0.0.0.0}
+      GATEWAY_PORT: ${GATEWAY_PORT:-8000}
+      MURDOC_ADMIN_TOKEN: ${MURDOC_ADMIN_TOKEN:-}
+      AGENT_BACKEND_URL: ${AGENT_BACKEND_URL:-}
+      AGENT_MEMORY_CONTEXT_URL: ${AGENT_MEMORY_CONTEXT_URL:-}
+      AGENT_BACKEND_TIMEOUT: ${AGENT_BACKEND_TIMEOUT:-10}
+      MURDOC_READ_CACHE_ENABLED: ${MURDOC_READ_CACHE_ENABLED:-true}
+      MURDOC_READ_CACHE_MAX_ITEMS: ${MURDOC_READ_CACHE_MAX_ITEMS:-256}
+      MURDOC_READ_CACHE_TTL_SECONDS: ${MURDOC_READ_CACHE_TTL_SECONDS:-300}
+      MURDOC_CONTROL_PLANE_FILE: ${MURDOC_CONTROL_PLANE_FILE:-/app/state/control-plane.json}
+      MURDOC_GATEWAY_ROUTES_FILE: ${MURDOC_GATEWAY_ROUTES_FILE:-/app/state/gateway-routes.json}
+      MURDOC_RUNTIME_SETTINGS_FILE: ${MURDOC_RUNTIME_SETTINGS_FILE:-/app/state/runtime-settings.json}
+      MURDOC_DECISION_LEDGER_FILE: ${MURDOC_DECISION_LEDGER_FILE:-}
+      LAKERA_API_KEY: ${LAKERA_API_KEY:-}
+      LAKERA_API_URL: ${LAKERA_API_URL:-https://api.lakera.ai}
+      LAKERA_PROJECT_ID: ${LAKERA_PROJECT_ID:-}
+      NEMO_GUARDRAILS_MAX_CONCURRENCY: ${NEMO_GUARDRAILS_MAX_CONCURRENCY:-1}
+      NEMO_GUARDRAILS_CONFIG_PATH: ${NEMO_GUARDRAILS_CONFIG_PATH:-}
+      NEMO_GUARDRAILS_MAIN_MODEL: ${NEMO_GUARDRAILS_MAIN_MODEL:-meta/llama-3.3-70b-instruct}
+      NEMO_GUARDRAILS_CONTENT_SAFETY_MODEL: ${NEMO_GUARDRAILS_CONTENT_SAFETY_MODEL:-nvidia/llama-3.1-nemoguard-8b-content-safety}
+      PRESIDIO_SCORE_THRESHOLD: ${PRESIDIO_SCORE_THRESHOLD:-0.3}
+      PRESIDIO_ENTITIES: ${PRESIDIO_ENTITIES:-CREDIT_CARD,EMAIL_ADDRESS,PHONE_NUMBER,US_SSN,IP_ADDRESS,IBAN_CODE,CRYPTO,US_PASSPORT,US_DRIVER_LICENSE,US_BANK_NUMBER}
+      OPA_POLICY_URL: ${OPA_POLICY_URL:-}
+      OPA_TIMEOUT_SECONDS: ${OPA_TIMEOUT_SECONDS:-1.0}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OBSERVABILITY_EVENT_LOG_FILE: /app/logs/murdoc-events.jsonl
+    ports:
+      - "8000:8000"
+    volumes:
+      - murdoc-logs:/app/logs
+      - murdoc-state:/app/state
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  murdoc-logs:
+  murdoc-state:

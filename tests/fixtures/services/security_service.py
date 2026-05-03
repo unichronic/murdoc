@@ -1,21 +1,18 @@
-"""
-Minimal Security Service for Testing
-Only Lakera integration (Presidio requires additional dependencies)
-"""
+"""Minimal security-service fixture used by local integration tests."""
 
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 from flask import Flask, request, jsonify
-from security.lakera_guard import scan_prompt
+from murdoc.security.lakera_guard import scan_prompt
 
 app = Flask(__name__)
 
 
 @app.route("/", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "service": "bifrost-security"})
+    return jsonify({"status": "ok", "service": "murdoc-security"})
 
 
 @app.route("/lakera/scan", methods=["POST"])
@@ -53,7 +50,7 @@ def anonymize():
 
 
 if __name__ == "__main__":
-    print("Bifrost Security Service (Lakera only)")
+    print("Murdoc security service fixture")
     print("   Lakera Guard: enabled")
-    print("   Presidio: mock (install presidio_analyzer for full support)")
+    print("   Presidio: mock")
     app.run(host="0.0.0.0", port=5000)

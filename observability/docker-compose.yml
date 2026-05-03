@@ -52,7 +52,7 @@ services:
     command: ["-config.file=/etc/promtail/promtail.yml"]
     volumes:
       - ./promtail.yml:/etc/promtail/promtail.yml:ro
-      - ../logs:/var/log/agentvault:ro
+      - ../logs:/var/log/murdoc:ro
     depends_on:
       - loki
 

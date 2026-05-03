@@ -1,54 +1,42 @@
 # Security Framework Testing
 
-This directory contains tests for the Bifrost security framework (OPA + Lakera + Presidio).
+This directory contains tests for the Murdoc security framework (OPA + Lakera + Presidio).
 
 ## Structure
 
-```
+```text
 tests/security/
--  opa_test.go           # OPA middleware unit tests
--  presidio_test.go      # Presidio PII detection tests
--  lakera_test.go        # Lakera prompt injection tests
--  integration_test.go   # Full pipeline integration tests
+-  opa_test.go
+-  presidio_test.go
+-  lakera_test.go
+-  integration_test.go
 
 tests/fixtures/policies/
--  allow_all.rego        # Test policy: allow everything
--  block_sensitive.rego  # Test policy: block PII patterns
--  main.rego            # Integration test policy
-
-scripts/
--  test_security.sh      # Manual E2E testing script
+-  allow_all.rego
+-  block_sensitive.rego
+-  main.rego
 ```
 
 ## Running Tests
 
 ### Unit Tests
 ```bash
-# Run all security tests
-go test ./tests/security/... -v
+cd tests/security
+go test ./... -v
 
 # Run specific layer
-go test ./tests/security/opa_test.go -v
-go test ./tests/security/lakera_test.go -v
-go test ./tests/security/presidio_test.go -v
+go test -run TestOPAMiddleware -v
+go test -run TestLakeraMiddleware -v
+go test -run TestPresidioMiddleware -v
 ```
 
 ### Integration Tests
 ```bash
-# Run with integration tag
-go test ./tests/security/integration_test.go -v -tags=integration
+cd tests/security
+go test -run TestSecurityPipeline_FullFlow -v
 
 # Or skip with short flag
-go test ./tests/security/... -short
-```
-
-### Manual E2E Tests
-```bash
-# Start Bifrost with security plugins enabled
-make dev
-
-# In another terminal, run test script
-./scripts/test_security.sh
+go test ./... -short
 ```
 
 ## Test Scenarios

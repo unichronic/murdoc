@@ -7,7 +7,7 @@ export default function Header({ currentView, setCurrentView }) {
         <div className="logo" onClick={() => setCurrentView('main')} style={{ cursor: 'pointer' }}>
           <div className="logo-mark">AV</div>
           <div className="logo-text">
-            <span className="logo-title">AgentVault</span>
+            <span className="logo-title">Murdoc</span>
             <span className="logo-subtitle">Protected AI Layer</span>
           </div>
         </div>

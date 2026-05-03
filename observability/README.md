@@ -1,6 +1,6 @@
-# AgentVault Observability Stack
+# Murdoc Observability Stack
 
-Local vendor-neutral observability for the AgentVault gateway.
+Local vendor-neutral observability for the Murdoc gateway.
 
 ## Components
 
@@ -9,7 +9,7 @@ Local vendor-neutral observability for the AgentVault gateway.
 - Prometheus scrapes gateway metrics from `http://host.docker.internal:8000/metrics`.
 - Alertmanager receives Prometheus alerts on `9093` and posts them to the gateway alert ledger by default.
 - Loki stores structured security event logs.
-- Promtail tails `logs/agentvault-events.jsonl` into Loki.
+- Promtail tails `logs/murdoc-events.jsonl` into Loki.
 - Grafana provides dashboards at `http://localhost:3000`.
 - The control plane exposes route profile/config versions and the decision
   ledger through the gateway API.
@@ -27,8 +27,8 @@ From the repo root:
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-export OBSERVABILITY_EVENT_LOG_FILE=logs/agentvault-events.jsonl
-uvicorn agentvault_gateway.app:app --host 0.0.0.0 --port 8000
+export OBSERVABILITY_EVENT_LOG_FILE=logs/murdoc-events.jsonl
+uvicorn murdoc.gateway.app:app --host 0.0.0.0 --port 8000
 ```
 
 Then generate a few requests:
@@ -61,20 +61,20 @@ curl -X POST http://localhost:8000/api/process \
 - Grafana: `http://localhost:3000`
 
 Grafana is configured with anonymous admin access for local development. Open
-the `AgentVault Gateway Overview` dashboard in the `AgentVault` folder.
+the `Murdoc Gateway Overview` dashboard in the `Murdoc` folder.
 
 ## Alerts
 
 Prometheus loads `prometheus-alerts.yml` with the initial high-signal rules:
 
-- `AgentVaultGatewayDown`: Prometheus cannot scrape `/metrics`.
-- `AgentVaultHighErrorRate`: `/api/process` 5xx rate is above 5% for 5 minutes.
-- `AgentVaultHighLatency`: `/api/process` p95 latency is above 2 seconds for 5 minutes.
-- `AgentVaultSecurityLayerErrors`: any guardrail layer emits errors.
-- `AgentVaultPromptInjectionSpike`: more than 20 prompt-injection blocks in 10 minutes.
-- `AgentVaultPiiScrubSpike`: more than 20 PII scrub events in 10 minutes.
-- `AgentVaultLatencyBudgetExceeded`: one or more route profiles exceeded their latency budget.
-- `AgentVaultDecisionBlocksSpike`: final gateway block decisions spiked.
+- `MurdocGatewayDown`: Prometheus cannot scrape `/metrics`.
+- `MurdocHighErrorRate`: `/api/process` 5xx rate is above 5% for 5 minutes.
+- `MurdocHighLatency`: `/api/process` p95 latency is above 2 seconds for 5 minutes.
+- `MurdocSecurityLayerErrors`: any guardrail layer emits errors.
+- `MurdocPromptInjectionSpike`: more than 20 prompt-injection blocks in 10 minutes.
+- `MurdocPiiScrubSpike`: more than 20 PII scrub events in 10 minutes.
+- `MurdocLatencyBudgetExceeded`: one or more route profiles exceeded their latency budget.
+- `MurdocDecisionBlocksSpike`: final gateway block decisions spiked.
 
 Reload Prometheus rules after editing:
 

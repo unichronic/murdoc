@@ -11,9 +11,9 @@ export default function Hero({ setCurrentView }) {
           Neutralized.
         </h1>
         <p className="hero-lead">
-          Secure your autonomous AI deployments against the 2026 threat landscape.
-          AgentVault provides continuous Asset Discovery, extreme-latency Runtime Guardrails,
-          and Automated Red Teaming to ensure your AI acts safely within Zero-Trust boundaries.
+          Route OpenAI-compatible LLM calls, HTTP tool calls, and MCP sessions
+          through one policy runtime with guardrails, redaction, audit records,
+          and regression testing for agent workflows.
         </p>
         <div className="hero-actions" style={{ marginTop: '2rem' }}>
           <button

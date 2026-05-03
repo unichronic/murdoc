@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "notionApi": {
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": {
+        "NOTION_TOKEN": "ntn_****"
+      }
+    }
+  },
+  "_comment": "Example downstream MCP server config for Murdoc. Run Murdoc as the MCP proxy between the client and this server."
+}

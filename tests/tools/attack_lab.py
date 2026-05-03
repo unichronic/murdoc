@@ -58,7 +58,7 @@ def maybe_start_local_opa(real_services: bool) -> subprocess.Popen | None:
         return None
 
     host_port = parsed.port or 8181
-    policy_file = ROOT / "tests" / "fixtures" / "policies" / "agentvault.rego"
+    policy_file = ROOT / "tests" / "fixtures" / "policies" / "murdoc.rego"
     cmd = [
         "docker",
         "run",
@@ -66,12 +66,12 @@ def maybe_start_local_opa(real_services: bool) -> subprocess.Popen | None:
         "-p",
         f"{host_port}:8181",
         "-v",
-        f"{policy_file}:/policies/agentvault.rego:ro",
+        f"{policy_file}:/policies/murdoc.rego:ro",
         "openpolicyagent/opa:latest",
         "run",
         "--server",
         "--addr=0.0.0.0:8181",
-        "/policies/agentvault.rego",
+        "/policies/murdoc.rego",
     ]
     proc = subprocess.Popen(
         cmd,
@@ -339,7 +339,7 @@ def validate_real_services(gateway_base_url: str, agent_base_url: str, env: dict
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the full AgentVault attack lab")
+    parser = argparse.ArgumentParser(description="Run the full Murdoc attack lab")
     parser.add_argument("--profile", choices=["baseline", "extended"], default="extended")
     parser.add_argument("--mode", choices=["gateway", "raw", "compare"], default="compare")
     parser.add_argument("--iterations", type=int, default=2)
@@ -365,7 +365,7 @@ def main() -> None:
     peer_port = free_port() if args.target == "multi-agent" else 0
     gateway_port = free_port()
     opa_proc = maybe_start_local_opa(real_services)
-    agent_runtime = tempfile.TemporaryDirectory(prefix="agentvault-target-")
+    agent_runtime = tempfile.TemporaryDirectory(prefix="murdoc-target-")
     agent_env = os.environ.copy()
     agent_env["AGENT_LAB_RUNTIME_DIR"] = agent_runtime.name
     agent_env["AGENT_ROLE"] = "coordinator"
@@ -404,7 +404,7 @@ def main() -> None:
         sys.executable,
         "-m",
         "uvicorn",
-        "agentvault_gateway.app:app",
+        "murdoc.gateway.app:app",
         "--host",
         "127.0.0.1",
         "--port",
@@ -434,7 +434,7 @@ def main() -> None:
         if args.run_a2a_scanner or args.target in {"multi-agent", "agno-team"}:
             scanner_summary = run_a2a_scanner(
                 f"http://localhost:{agent_port}",
-                Path(tempfile.mkdtemp(prefix="agentvault-a2a-scan-")),
+                Path(tempfile.mkdtemp(prefix="murdoc-a2a-scan-")),
             )
         if real_services and strict_real_services():
             validate_real_services(
@@ -444,10 +444,10 @@ def main() -> None:
             )
         fuzz_env = os.environ.copy()
         fuzz_env[REAL_SERVICES_ENV] = "true" if real_services else "false"
-        fuzz_env["AGENTVAULT_GATEWAY_URL"] = f"http://127.0.0.1:{gateway_port}/api/process"
-        fuzz_env["AGENTVAULT_AGENT_URL"] = f"http://127.0.0.1:{agent_port}/process"
-        fuzz_env["AGENTVAULT_AUDIT_URL"] = f"http://127.0.0.1:{agent_port}/audit"
-        fuzz_env["AGENTVAULT_RESET_URL"] = f"http://127.0.0.1:{agent_port}/reset"
+        fuzz_env["MURDOC_GATEWAY_URL"] = f"http://127.0.0.1:{gateway_port}/api/process"
+        fuzz_env["MURDOC_AGENT_URL"] = f"http://127.0.0.1:{agent_port}/process"
+        fuzz_env["MURDOC_AUDIT_URL"] = f"http://127.0.0.1:{agent_port}/audit"
+        fuzz_env["MURDOC_RESET_URL"] = f"http://127.0.0.1:{agent_port}/reset"
         fuzzer_cmd = [
             sys.executable,
             str(ROOT / "tests" / "tools" / "agent_fuzzer.py"),

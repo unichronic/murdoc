@@ -23,9 +23,9 @@ route:
 receivers:
   - name: slack
     slack_configs:
-      - channel: "#agentvault-alerts"
+      - channel: "#murdoc-alerts"
         send_resolved: true
-        title: "[AgentVault] {{ .CommonLabels.severity }}: {{ .CommonLabels.alertname }}"
+        title: "[Murdoc] {{ .CommonLabels.severity }}: {{ .CommonLabels.alertname }}"
         text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}\n{{ end }}"
 
   - name: pagerduty-and-slack
@@ -35,7 +35,7 @@ receivers:
         description: "{{ .CommonLabels.alertname }}: {{ .CommonAnnotations.summary }}"
         send_resolved: true
     slack_configs:
-      - channel: "#agentvault-alerts"
+      - channel: "#murdoc-alerts"
         send_resolved: true
-        title: "[AgentVault CRITICAL] {{ .CommonLabels.alertname }}"
+        title: "[Murdoc CRITICAL] {{ .CommonLabels.alertname }}"
         text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}\n{{ end }}"

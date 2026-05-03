@@ -36,8 +36,8 @@ def wait_for(url: str, timeout: float = 20.0):
 def test_multi_agent_target_uses_real_a2a_peer_and_scanner():
     coordinator_port = free_port()
     peer_port = free_port()
-    runtime = tempfile.TemporaryDirectory(prefix="agentvault-a2a-test-")
-    scan_dir = Path(tempfile.mkdtemp(prefix="agentvault-a2a-scan-test-"))
+    runtime = tempfile.TemporaryDirectory(prefix="murdoc-a2a-test-")
+    scan_dir = Path(tempfile.mkdtemp(prefix="murdoc-a2a-scan-test-"))
     procs = []
 
     peer_env = os.environ.copy()

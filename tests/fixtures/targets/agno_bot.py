@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirna
 from flask import Flask, jsonify, request
 import requests
 
-logger = logging.getLogger("agentvault.agno-bot")
+logger = logging.getLogger("murdoc.agno-bot")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 DEFAULT_RUNTIME_DIR = os.path.join(os.path.dirname(__file__), "runtime")
@@ -350,7 +350,7 @@ def _agent_card(base_url: str) -> dict:
     base_url = base_url.rstrip("/")
     return {
         "name": AGENT_NAME,
-        "description": f"AgentVault lab {AGENT_ROLE} agent for support delegation and A2A security testing.",
+        "description": f"Murdoc lab {AGENT_ROLE} agent for support delegation and A2A security testing.",
         "url": base_url,
         "version": "1.0.0",
         "capabilities": {
@@ -639,7 +639,7 @@ def create_agent_app():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="AgentVault - Vulnerable Target Agent")
+    parser = argparse.ArgumentParser(description="Murdoc - Vulnerable Target Agent")
     parser.add_argument("--port", type=int, default=8001, help="Port to listen on (default: 8001)")
     parser.add_argument("--standalone", action="store_true", help="Single-shot mode: read ticket from stdin")
     args = parser.parse_args()

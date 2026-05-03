@@ -1,5 +1,5 @@
 """
-Agno-backed multi-agent target for AgentVault attack-lab validation.
+Agno-backed multi-agent target for Murdoc attack-lab validation.
 
 This target uses Agno's Team/Agent orchestration path with a deterministic local
 model. It is intentionally vulnerable when called directly, but stable enough to
@@ -222,7 +222,7 @@ def _build_team(request_id: str) -> Team:
         id="support-agent",
         name="SupportAgent",
         role="General support specialist with access to support tools.",
-        model=DeterministicAgnoLabModel(id="agentvault-local-support", role="member"),
+        model=DeterministicAgnoLabModel(id="murdoc-local-support", role="member"),
         tools=tools,
         tool_call_limit=8,
         telemetry=False,
@@ -231,16 +231,16 @@ def _build_team(request_id: str) -> Team:
         id="peer-agent",
         name="PeerReviewAgent",
         role="Peer agent that handles delegated support and escalation tasks.",
-        model=DeterministicAgnoLabModel(id="agentvault-local-peer", role="member"),
+        model=DeterministicAgnoLabModel(id="murdoc-local-peer", role="member"),
         tools=tools,
         tool_call_limit=8,
         telemetry=False,
     )
     return Team(
-        id="agentvault-support-team",
-        name="AgentVault Support Team",
+        id="murdoc-support-team",
+        name="Murdoc Support Team",
         mode=TeamMode.route,
-        model=DeterministicAgnoLabModel(id="agentvault-local-team", role="team"),
+        model=DeterministicAgnoLabModel(id="murdoc-local-team", role="team"),
         members=[support_agent, peer_agent],
         respond_directly=True,
         store_member_responses=True,
@@ -300,7 +300,7 @@ def process_ticket_agno_team(ticket_text: str, request_id: str = "", contexts: l
             _record_a2a_event(
                 request_id=request_id,
                 direction="in_process_delegate",
-                peer_url="agno://agentvault-support-team/peer-agent",
+                peer_url="agno://murdoc-support-team/peer-agent",
                 peer_name="PeerReviewAgent",
                 status=200,
                 message=message,
@@ -308,10 +308,10 @@ def process_ticket_agno_team(ticket_text: str, request_id: str = "", contexts: l
             )
 
     return {
-        "agent": "AgentVault Agno Team (INSECURE)",
+        "agent": "Murdoc Agno Team (INSECURE)",
         "framework": "agno",
         "team_mode": "route",
-        "team_id": "agentvault-support-team",
+        "team_id": "murdoc-support-team",
         "request_id": request_id,
         "response": str(getattr(response, "content", "") or "Resolved."),
         "tool_calls": _team_tool_calls(response),
@@ -319,7 +319,7 @@ def process_ticket_agno_team(ticket_text: str, request_id: str = "", contexts: l
         "ticket_log": rows_for("ticket_log", request_id)[-5:],
         "usage": {
             "provider": "local-deterministic-agno",
-            "model": "agentvault-local-team",
+            "model": "murdoc-local-team",
             "input_tokens": max(1, len(team_input) // 4),
             "output_tokens": max(1, len(str(getattr(response, "content", "") or "")) // 4),
         },
@@ -339,15 +339,15 @@ def create_agent_app():
     @app.route("/health")
     @app.route("/healthz")
     def healthz():
-        return jsonify({"status": "ok", "agent": "AgentVault Agno Team", "framework": "agno", "team_mode": "route"})
+        return jsonify({"status": "ok", "agent": "Murdoc Agno Team", "framework": "agno", "team_mode": "route"})
 
     @app.route("/.well-known/agent-card.json")
     @app.route("/agent-card")
     @app.route("/agent-card.json")
     def agent_card():
         card = _agent_card(request.host_url.rstrip("/"))
-        card["name"] = "AgentVault Agno Team"
-        card["description"] = "Agno Team target using route-mode member delegation for AgentVault security testing."
+        card["name"] = "Murdoc Agno Team"
+        card["description"] = "Agno Team target using route-mode member delegation for Murdoc security testing."
         card["skills"][0]["id"] = "agno-team-delegation"
         card["skills"][0]["name"] = "Agno Team Delegation"
         return jsonify(card)
@@ -390,9 +390,9 @@ def create_agent_app():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="AgentVault Agno Team Target")
+    parser = argparse.ArgumentParser(description="Murdoc Agno Team Target")
     parser.add_argument("--port", type=int, default=8001)
     args = parser.parse_args()
     seed_database(reset=False)
-    print(f"AgentVault Agno Team running at http://localhost:{args.port}")
+    print(f"Murdoc Agno Team running at http://localhost:{args.port}")
     create_agent_app().run(host="0.0.0.0", port=args.port, debug=False)

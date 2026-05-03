@@ -41,7 +41,7 @@ def wait_for(url: str, timeout: float = 20.0):
 def lab():
     agent_port = free_port()
     gateway_port = free_port()
-    agent_runtime = tempfile.TemporaryDirectory(prefix="agentvault-harness-target-")
+    agent_runtime = tempfile.TemporaryDirectory(prefix="murdoc-harness-target-")
     agent_env = os.environ.copy()
     agent_env["AGENT_LAB_RUNTIME_DIR"] = agent_runtime.name
 
@@ -55,13 +55,13 @@ def lab():
     )
 
     env = build_gateway_env(agent_port, gateway_port, real_services=False)
-    env["AGENTVAULT_ALLOW_BODY_AUTH"] = "true"
+    env["MURDOC_ALLOW_BODY_AUTH"] = "true"
     gateway_proc = subprocess.Popen(
         [
             sys.executable,
             "-m",
             "uvicorn",
-            "agentvault_gateway.app:app",
+            "murdoc.gateway.app:app",
             "--host",
             "127.0.0.1",
             "--port",
@@ -246,7 +246,7 @@ def test_real_service_validation_rejects_http_opa_fallback_to_in_process_policy(
         {
             "LAKERA_API_KEY": "key",
             "LAKERA_REQUIRED": "true",
-            "OPA_POLICY_URL": "http://127.0.0.1:8181/v1/data/agentvault/decision",
+            "OPA_POLICY_URL": "http://127.0.0.1:8181/v1/data/murdoc/decision",
             "OPA_FAIL_CLOSED": "true",
             "NEMO_GUARDRAILS_ENABLED": "true",
             "NEMO_GUARDRAILS_REQUIRED": "true",

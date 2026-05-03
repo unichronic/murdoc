@@ -35,7 +35,7 @@ export default function Dashboard() {
     ]
 
     const activities = [
-        { time: 'Live', agent: 'AgentVault Gateway', event: 'Gateway protection layers active', status: 'cleared' },
+        { time: 'Live', agent: 'Murdoc Gateway', event: 'Gateway protection layers active', status: 'cleared' },
         { time: 'Ready', agent: 'Red Team Harness', event: '11 OWASP LLM payloads available for gateway testing', status: 'blocked' },
         { time: 'Ready', agent: 'MCP Interceptor', event: 'Secure call_tool() wrapper available for MCP clients', status: 'scrubbed' },
         { time: 'Live', agent: 'Observability', event: 'Metrics, traces, and safe security events wired into the gateway', status: 'cleared' },

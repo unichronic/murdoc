@@ -13,8 +13,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 load_dotenv(os.path.join(ROOT, ".env"))
 
 
-REAL_SERVICES_ENV = "AGENTVAULT_USE_REAL_SERVICES"
-STRICT_REAL_SERVICES_ENV = "AGENTVAULT_STRICT_REAL_SERVICES"
+REAL_SERVICES_ENV = "MURDOC_USE_REAL_SERVICES"
+STRICT_REAL_SERVICES_ENV = "MURDOC_STRICT_REAL_SERVICES"
 
 
 def env_flag(name: str, default: bool = False) -> bool:
@@ -51,7 +51,7 @@ def build_gateway_env(agent_port: int, gateway_port: int, real_services: bool = 
         # or silently accepting unavailable provider checks.
         env["LAKERA_REQUIRED"] = "true"
         env["NEMO_GUARDRAILS_REQUIRED"] = "true"
-        env.setdefault("AGENTVAULT_REQUEST_TIMEOUT", "45")
+        env.setdefault("MURDOC_REQUEST_TIMEOUT", "45")
         if env.get("OPA_POLICY_URL", "").strip():
             env["OPA_FAIL_CLOSED"] = "true"
 

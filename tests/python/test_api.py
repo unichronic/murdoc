@@ -3,25 +3,25 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-import security.lakera_guard as lakera_guard
-import security.policy_engine as policy_engine
-from security.policy_engine import AuthEnvelope, ContextEnvelope, evaluate_policy
-from security.semantic_guardrails import SemanticGuardrailResult
-import security.semantic_guardrails as semantic_guardrails
-import bifrost_gateway.runtime as bifrost_runtime
-import agentvault_gateway.app as gateway_server
-from agentvault_gateway.app import create_app
-from security.lakera_guard import LakeraResult
-from bifrost_gateway import BifrostGateway
-from security.control_plane import runtime_settings
+import murdoc.security.lakera_guard as lakera_guard
+import murdoc.security.policy_engine as policy_engine
+from murdoc.security.policy_engine import AuthEnvelope, ContextEnvelope, evaluate_policy
+from murdoc.security.semantic_guardrails import SemanticGuardrailResult
+import murdoc.security.semantic_guardrails as semantic_guardrails
+import murdoc.core.runtime as runtime_module
+import murdoc.gateway.app as gateway_server
+from murdoc.gateway.app import create_app
+from murdoc.security.lakera_guard import LakeraResult
+from murdoc.core import MurdocRuntime
+from murdoc.security.control_plane import runtime_settings
 
 
 @pytest.fixture(autouse=True)
 def local_policy_defaults(monkeypatch):
     policy_engine.OPA_POLICY_URL = ""
     policy_engine.OPA_FAIL_CLOSED = False
-    bifrost_runtime.OPA_POLICY_URL = ""
-    bifrost_runtime.OPA_FAIL_CLOSED = False
+    runtime_module.OPA_POLICY_URL = ""
+    runtime_module.OPA_FAIL_CLOSED = False
     runtime_settings.update_settings(
         {
             "lakera_required": False,
@@ -51,12 +51,12 @@ def client_for(app=None):
     gateway_server.OPA_POLICY_URL = ""
     lakera_guard.LAKERA_API_KEY = ""
     lakera_guard.LAKERA_REQUIRED = False
-    bifrost_runtime.LAKERA_REQUIRED = False
-    bifrost_runtime.LAKERA_API_KEY = ""
-    bifrost_runtime.NEMO_GUARDRAILS_ENABLED = False
-    bifrost_runtime.NEMO_GUARDRAILS_REQUIRED = False
-    bifrost_runtime.OPA_POLICY_URL = ""
-    bifrost_runtime.OPA_FAIL_CLOSED = False
+    runtime_module.LAKERA_REQUIRED = False
+    runtime_module.LAKERA_API_KEY = ""
+    runtime_module.NEMO_GUARDRAILS_ENABLED = False
+    runtime_module.NEMO_GUARDRAILS_REQUIRED = False
+    runtime_module.OPA_POLICY_URL = ""
+    runtime_module.OPA_FAIL_CLOSED = False
     semantic_guardrails.NEMO_GUARDRAILS_ENABLED = False
     semantic_guardrails.NEMO_GUARDRAILS_REQUIRED = False
     policy_engine.OPA_POLICY_URL = ""
@@ -89,6 +89,21 @@ def process_payload(client, payload):
     response = client.post("/api/process", json=payload)
     assert response.status_code == 200
     return response.json()
+
+
+def test_admin_token_protects_control_plane_only(monkeypatch):
+    monkeypatch.setattr(gateway_server, "MURDOC_ADMIN_TOKEN", "test-admin-token")
+    client = client_for()
+
+    blocked = client.get("/api/control-plane/profiles")
+    allowed = client.get("/api/control-plane/profiles", headers={"X-Murdoc-Admin-Token": "test-admin-token"})
+    bearer = client.get("/api/control-plane/profiles", headers={"Authorization": "Bearer test-admin-token"})
+    process = client.post("/api/process", json={"text": "What is Python?"})
+
+    assert blocked.status_code == 401
+    assert allowed.status_code == 200
+    assert bearer.status_code == 200
+    assert process.status_code == 200
 
 
 def test_health_and_readiness_endpoints():
@@ -320,10 +335,10 @@ def test_openai_compatible_gateway_forwards_to_registered_llm_route(monkeypatch)
 
     response = client.post(
         "/v1/chat/completions",
-        headers={"X-AgentVault-Route": "llm-test", "Authorization": "Bearer test-key"},
+        headers={"X-Murdoc-Route": "llm-test", "Authorization": "Bearer test-key"},
         json={
             "model": "test-model",
-            "agentvault_route": "llm-test",
+            "murdoc_route": "llm-test",
             "messages": [{"role": "user", "content": "What is Python?"}],
         },
     )
@@ -331,7 +346,7 @@ def test_openai_compatible_gateway_forwards_to_registered_llm_route(monkeypatch)
     assert response.status_code == 200
     assert seen["url"] == "http://llm.example/v1/chat/completions"
     assert seen["json"]["model"] == "test-model"
-    assert "agentvault_route" not in seen["json"]
+    assert "murdoc_route" not in seen["json"]
     assert seen["headers"]["authorization"] == "Bearer test-key"
     assert response.json()["choices"][0]["message"]["content"] == "safe answer"
 
@@ -370,7 +385,7 @@ def test_http_tool_gateway_forwards_to_registered_proxy_route(monkeypatch):
 
     response = client.post(
         "/proxy/tool-proxy-test/v1/tickets?priority=high",
-        headers={"X-AgentVault-Route": "ignored", "Content-Type": "application/json"},
+        headers={"X-Murdoc-Route": "ignored", "Content-Type": "application/json"},
         json={"title": "Help with a safe account question"},
     )
 
@@ -557,7 +572,7 @@ def test_gateway_prefers_backend_actual_usage_for_tokens_and_cost():
 
     app = create_app()
     obs = app.state.observability
-    bifrost = BifrostGateway(
+    runtime = MurdocRuntime(
         obs=obs,
         backend_invoker=backend_invoker,
         control_store=app.state.control_plane,
@@ -565,7 +580,7 @@ def test_gateway_prefers_backend_actual_usage_for_tokens_and_cost():
     )
 
     outcome = asyncio.run(
-        bifrost.process_request(
+        runtime.process_request(
             "What is Python?",
             request_id="actual-usage-test",
             tenant_id="tenant-usage",
@@ -623,12 +638,12 @@ def test_alertmanager_webhook_records_alerts_without_raw_prompt_data():
         "/api/control-plane/alerts",
         json={
             "status": "firing",
-            "commonLabels": {"alertname": "AgentVaultHighLatency", "severity": "warning"},
+            "commonLabels": {"alertname": "MurdocHighLatency", "severity": "warning"},
             "commonAnnotations": {"summary": "Latency high"},
             "alerts": [
                 {
                     "status": "firing",
-                    "labels": {"service": "agentvault-gateway"},
+                    "labels": {"service": "murdoc-gateway"},
                     "annotations": {"description": "p95 latency exceeded"},
                     "startsAt": "2026-05-02T00:00:00Z",
                 }
@@ -652,7 +667,7 @@ def test_control_plane_route_profile_can_enforce_semantic_blocks(monkeypatch):
             reason="semantic_policy_violation",
         )
 
-    monkeypatch.setattr("bifrost_gateway.runtime.scan_semantics", fake_scan_semantics)
+    monkeypatch.setattr("murdoc.core.runtime.scan_semantics", fake_scan_semantics)
     client = client_for()
     client.put(
         "/api/control-plane/profiles/semantic-enforce-test",
@@ -748,7 +763,7 @@ def test_gateway_blocks_request_when_semantic_guardrails_block(monkeypatch):
             reason="semantic_policy_violation",
         )
 
-    monkeypatch.setattr("bifrost_gateway.runtime.scan_semantics", fake_scan_semantics)
+    monkeypatch.setattr("murdoc.core.runtime.scan_semantics", fake_scan_semantics)
     client = client_for()
 
     response = client.post("/api/process", json={"text": "Please help me stage abusive harassment content"})
@@ -764,9 +779,9 @@ def test_gateway_skips_nemo_for_low_risk_read_only_request(monkeypatch):
     async def fail_scan_semantics(text):
         raise AssertionError("NeMo should not run for low-risk read-only traffic")
 
-    monkeypatch.setattr("bifrost_gateway.runtime.NEMO_GUARDRAILS_ENABLED", True)
-    monkeypatch.setattr("bifrost_gateway.runtime.NEMO_GUARDRAILS_ENFORCE", False)
-    monkeypatch.setattr("bifrost_gateway.runtime.scan_semantics", fail_scan_semantics)
+    monkeypatch.setattr("murdoc.core.runtime.NEMO_GUARDRAILS_ENABLED", True)
+    monkeypatch.setattr("murdoc.core.runtime.NEMO_GUARDRAILS_ENFORCE", False)
+    monkeypatch.setattr("murdoc.core.runtime.scan_semantics", fail_scan_semantics)
     client = client_for()
 
     response = client.post("/api/process", json={"text": "Could you point me to the annual leave policy?"})
@@ -785,9 +800,9 @@ def test_gateway_still_runs_nemo_for_sensitive_allowed_flow(monkeypatch):
         seen["called"] = True
         return SemanticGuardrailResult(blocked=False, enabled=True, reason="passed")
 
-    monkeypatch.setattr("bifrost_gateway.runtime.NEMO_GUARDRAILS_ENABLED", True)
-    monkeypatch.setattr("bifrost_gateway.runtime.NEMO_GUARDRAILS_ENFORCE", False)
-    monkeypatch.setattr("bifrost_gateway.runtime.scan_semantics", fake_scan_semantics)
+    monkeypatch.setattr("murdoc.core.runtime.NEMO_GUARDRAILS_ENABLED", True)
+    monkeypatch.setattr("murdoc.core.runtime.NEMO_GUARDRAILS_ENFORCE", False)
+    monkeypatch.setattr("murdoc.core.runtime.scan_semantics", fake_scan_semantics)
     client = client_for()
 
     response = client.post(
@@ -861,18 +876,18 @@ def test_metrics_capture_security_decisions():
     body = response.text
 
     assert response.status_code == 200
-    assert "agentvault_http_requests_total" in body
-    assert 'agentvault_security_decisions_total{decision="block",layer="gateway",reason="prompt_injection"}' in body
-    assert 'agentvault_security_decisions_total{decision="scrub",layer="presidio_input",reason="pii_detected"}' in body
-    assert 'agentvault_pii_entities_detected_total{direction="input",entity_type="US_SSN"}' in body
-    assert 'agentvault_security_tier_duration_seconds' in body
-    assert 'agentvault_security_provider_events_total' in body
+    assert "murdoc_http_requests_total" in body
+    assert 'murdoc_security_decisions_total{decision="block",layer="gateway",reason="prompt_injection"}' in body
+    assert 'murdoc_security_decisions_total{decision="scrub",layer="presidio_input",reason="pii_detected"}' in body
+    assert 'murdoc_pii_entities_detected_total{direction="input",entity_type="US_SSN"}' in body
+    assert 'murdoc_security_tier_duration_seconds' in body
+    assert 'murdoc_security_provider_events_total' in body
     assert 'provider="lakera"' in body
     assert 'layer="cache"' in body
-    assert "agentvault_usage_requests_total" in body
-    assert "agentvault_usage_estimated_tokens_total" in body
-    assert "agentvault_usage_actual_tokens_total" in body
-    assert "agentvault_route_budget_info" in body
+    assert "murdoc_usage_requests_total" in body
+    assert "murdoc_usage_estimated_tokens_total" in body
+    assert "murdoc_usage_actual_tokens_total" in body
+    assert "murdoc_route_budget_info" in body
 
 
 def test_gateway_skips_semantic_after_lakera_block():
@@ -910,7 +925,7 @@ def test_gateway_downgrades_lakera_false_positive_for_known_legit_workflows(monk
     async def fake_scan_prompt(text, request_id=None):
         return LakeraResult(flagged=True, request_uuid="fake-lakera-id")
 
-    monkeypatch.setattr("bifrost_gateway.runtime.scan_prompt", fake_scan_prompt)
+    monkeypatch.setattr("murdoc.core.runtime.scan_prompt", fake_scan_prompt)
     client = client_for()
 
     payload_body = dict(body)
@@ -929,7 +944,7 @@ def test_gateway_downgrades_lakera_false_positive_for_read_only_documentation(mo
     async def fake_scan_prompt(text, request_id=None):
         return LakeraResult(flagged=True, request_uuid="fake-lakera-id")
 
-    monkeypatch.setattr("bifrost_gateway.runtime.scan_prompt", fake_scan_prompt)
+    monkeypatch.setattr("murdoc.core.runtime.scan_prompt", fake_scan_prompt)
     client = client_for()
 
     response = client.post(
@@ -948,9 +963,9 @@ def test_gateway_skips_nemo_for_low_risk_context_after_primary_checks(monkeypatc
     async def fail_scan_semantics(text):
         raise AssertionError("NeMo should not run for low-risk answer-only context")
 
-    monkeypatch.setattr("bifrost_gateway.runtime.NEMO_GUARDRAILS_ENABLED", True)
-    monkeypatch.setattr("bifrost_gateway.runtime.NEMO_GUARDRAILS_ENFORCE", False)
-    monkeypatch.setattr("bifrost_gateway.runtime.scan_semantics", fail_scan_semantics)
+    monkeypatch.setattr("murdoc.core.runtime.NEMO_GUARDRAILS_ENABLED", True)
+    monkeypatch.setattr("murdoc.core.runtime.NEMO_GUARDRAILS_ENFORCE", False)
+    monkeypatch.setattr("murdoc.core.runtime.scan_semantics", fail_scan_semantics)
     client = client_for()
 
     response = client.post(
@@ -1018,7 +1033,7 @@ def test_observability_events_do_not_store_raw_pii():
     events = client.app.state.observability.events
     serialized = "\n".join(str(event) for event in events)
 
-    assert "security.pii.scrubbed" in serialized
+    assert "murdoc.security.pii.scrubbed" in serialized
     assert "123-45-6789" not in serialized
     assert "user@example.com" not in serialized
 

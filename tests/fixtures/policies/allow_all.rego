@@ -1,4 +1,4 @@
-package bifrost.security
+package murdoc.security
 
 # Allow all requests - used for testing that middleware doesn't block valid traffic
 default allow = true

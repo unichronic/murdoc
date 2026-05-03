@@ -38,7 +38,7 @@ def wait_for(url: str, timeout: float = 20.0):
 def lab():
     agent_port = free_port()
     gateway_port = free_port()
-    agent_runtime = tempfile.TemporaryDirectory(prefix="agentvault-e2e-target-")
+    agent_runtime = tempfile.TemporaryDirectory(prefix="murdoc-e2e-target-")
 
     agent_cmd = [sys.executable, str(ROOT / "tests" / "fixtures" / "targets" / "agno_bot.py"), "--port", str(agent_port)]
     agent_env = os.environ.copy()
@@ -57,7 +57,7 @@ def lab():
         sys.executable,
         "-m",
         "uvicorn",
-        "agentvault_gateway.app:app",
+        "murdoc.gateway.app:app",
         "--host",
         "127.0.0.1",
         "--port",
@@ -95,7 +95,7 @@ def reset_agent(agent_url: str):
 def gateway_process(gateway_url: str, payload: dict):
     headers = {}
     if payload.get("auth", {}).get("actor_role") == "admin":
-        headers["X-AgentVault-Admin-Token"] = "agentvault-local-admin"
+        headers["X-Murdoc-Admin-Token"] = "murdoc-local-admin"
     response = requests.post(f"{gateway_url}/api/process", json=payload, headers=headers, timeout=10)
     response.raise_for_status()
     return response.json()

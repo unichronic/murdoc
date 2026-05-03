@@ -62,7 +62,7 @@ export default function RedTeamPanel() {
                         <span className="rt-badge-label">OWASP LLM Top 10</span>
                     </div>
                     <p>
-                        Fire 11 adversarial payloads across 4 attack vectors through the AgentVault Gateway.
+                        Fire 11 adversarial payloads across 4 attack vectors through the Murdoc Gateway.
                         Each payload is marked <strong>Blocked</strong> (gateway stopped it) or <strong>Bypassed</strong> (slipped through).
                     </p>
                 </header>

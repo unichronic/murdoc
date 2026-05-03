@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/plugins/security/opa"
+	"github.com/murdoc-ai/murdoc/core/schemas"
+	"github.com/murdoc-ai/murdoc/plugins/security/opa"
 )
 
 func TestOPAMiddleware_AllowedRequest(t *testing.T) {
@@ -14,12 +14,12 @@ func TestOPAMiddleware_AllowedRequest(t *testing.T) {
 		t.Fatalf("Failed to create OPA middleware: %v", err)
 	}
 
-	req := &schemas.BifrostChatRequest{
+	req := &schemas.MurdocChatRequest{
 		Model: "gpt-4",
 		Messages: []schemas.Message{{Role: "user", Content: "Hello"}},
 	}
 
-	ctx := schemas.NewBifrostContext(context.Background(), 0)
+	ctx := schemas.NewMurdocContext(context.Background(), 0)
 	result := middleware.PreLLMHook(ctx, req, nil)
 
 	if result.ShortCircuit != nil {
@@ -33,12 +33,12 @@ func TestOPAMiddleware_BlockedRequest(t *testing.T) {
 		t.Fatalf("Failed to create OPA middleware: %v", err)
 	}
 
-	req := &schemas.BifrostChatRequest{
+	req := &schemas.MurdocChatRequest{
 		Model: "gpt-4",
 		Messages: []schemas.Message{{Role: "user", Content: "SSN: 123-45-6789"}},
 	}
 
-	ctx := schemas.NewBifrostContext(context.Background(), 0)
+	ctx := schemas.NewMurdocContext(context.Background(), 0)
 	result := middleware.PreLLMHook(ctx, req, nil)
 
 	if result.ShortCircuit == nil {

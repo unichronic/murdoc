@@ -46,7 +46,7 @@ const SCENARIOS = [
     vault: {
       logs: [
         'Agent generating summary...',
-        'AgentVault scrubbing output...',
+        'Murdoc scrubbing output...',
         'Summary: "User (SSN: [REDACTED_SSN]) requested insurance claim help via [REDACTED_EMAIL]."',
       ],
       outcome: 'Protected: All sensitive identifiers redacted.',
@@ -72,7 +72,7 @@ export default function SecurityDemo() {
 
   const runLiveTest = async () => {
     setIsTesting(true)
-    setLiveLogs(['Executing live query against gateway...', 'Connecting to AgentVault API...'])
+    setLiveLogs(['Executing live query against gateway...', 'Connecting to Murdoc API...'])
 
     try {
       const payload = customInput.trim()
@@ -88,13 +88,13 @@ export default function SecurityDemo() {
 
       if (result.blocked) {
         setLiveLogs([
-          'Connecting to AgentVault API...',
+          'Connecting to Murdoc API...',
           `[Lakera Guard] -> ${result.layers.lakera?.message || result.message}`,
-          'Result: Request BLOCKED by AgentVault.'
+          'Result: Request BLOCKED by Murdoc.'
         ])
       } else {
         setLiveLogs([
-          'Connecting to AgentVault API...',
+          'Connecting to Murdoc API...',
           `[Lakera Guard] -> ${result.layers.lakera?.message || 'Pass'}`,
           `[Presidio Input] -> ${result.layers.presidio_input?.message || 'Pass'}`,
           `[OPA Policy] -> ${result.layers.opa?.message || 'Pass'}`,
@@ -103,7 +103,7 @@ export default function SecurityDemo() {
         ])
       }
     } catch (err) {
-      setLiveLogs(['Error communicating with API:', err.message, 'Check that the AgentVault gateway is running.'])
+      setLiveLogs(['Error communicating with API:', err.message, 'Check that the Murdoc gateway is running.'])
     }
 
     setIsTesting(false)
@@ -115,7 +115,7 @@ export default function SecurityDemo() {
         <header className="demo-header">
           <h2>Security Playground</h2>
           <p>
-            Experience how AgentVault protects your infrastructure against the most common GenAI vulnerabilities.
+            Experience how Murdoc protects your infrastructure against the most common GenAI vulnerabilities.
           </p>
         </header>
 
@@ -132,7 +132,7 @@ export default function SecurityDemo() {
             className={`mode-btn ${!isRaw ? 'active' : ''}`}
             onClick={() => { setMode('vault'); setLiveLogs(null); }}
           >
-            Secured by AgentVault
+            Secured by Murdoc
           </button>
         </div>
 

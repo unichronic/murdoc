@@ -1,6 +1,6 @@
-# AgentVault
+# Murdoc
 
-AgentVault is a self-hosted security gateway for AI applications and agent tool
+Murdoc is a self-hosted security gateway for AI applications and agent tool
 traffic. It gives teams one place to inspect requests, authorize tool calls,
 redact sensitive data, record decisions, and test agent workflows against
 realistic attacks.
@@ -38,10 +38,10 @@ decision logic stays shared.
 
 ## Agent Integration Modes
 
-AgentVault keeps the production surface to three plug-and-play modes:
+Murdoc keeps the production surface to three plug-and-play modes:
 
 1. **OpenAI-compatible LLM gateway**
-   Agents and frameworks point their model client at AgentVault instead of the
+   Agents and frameworks point their model client at Murdoc instead of the
    provider directly:
 
    ```bash
@@ -55,7 +55,7 @@ AgentVault keeps the production surface to three plug-and-play modes:
      -d '{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"Hello"}]}'
    ```
 
-   You can also set `AGENTVAULT_DEFAULT_LLM_UPSTREAM_URL=https://api.openai.com`
+   You can also set `MURDOC_DEFAULT_LLM_UPSTREAM_URL=https://api.openai.com`
    before startup to register `default-llm` automatically.
 
 2. **HTTP tool/API gateway**
@@ -72,23 +72,23 @@ AgentVault keeps the production surface to three plug-and-play modes:
    ```
 
 3. **MCP gateway**
-   MCP-compatible agents connect to the AgentVault MCP server, which proxies to
+   MCP-compatible agents connect to the Murdoc MCP server, which proxies to
    the downstream MCP server:
 
    ```bash
    export MCP_SERVER_ID=example
    export MCP_DOWNSTREAM_COMMAND=python
    export MCP_DOWNSTREAM_ARGS="tests/fixtures/targets/fake_mcp_server.py"
-   python -m mcp_gateway.proxy_server
+   python -m murdoc.mcp.proxy_server
    ```
 
 ## Repository Layout
 
 ```text
-bifrost_gateway/        Shared runtime
-agentvault_gateway/     HTTP gateway, OpenAI-compatible endpoint, and control-plane API
-security/               Policy, guardrail, control-plane, and audit modules
-mcp_gateway/            Generic MCP adapter and standalone MCP proxy
+murdoc/core/        Shared runtime
+murdoc/gateway/     HTTP gateway, OpenAI-compatible endpoint, and control-plane API
+murdoc/security/    Policy, guardrail, control-plane, and audit modules
+murdoc/mcp/            Generic MCP adapter and standalone MCP proxy
 ui/                     React dashboard
 examples/               Clone-and-run examples
 tests/python/           Python tests
@@ -101,16 +101,16 @@ observability/          Local metrics, logs, traces, and dashboards
 
 ## Setup
 
-Install Python dependencies:
+Install the gateway:
 
 ```bash
-pip install -r requirements.txt
+pip install .
 ```
 
 Run the gateway API:
 
 ```bash
-uvicorn agentvault_gateway.app:app --host 0.0.0.0 --port 8000
+uvicorn murdoc.gateway.app:app --host 0.0.0.0 --port 8000
 ```
 
 Run the dashboard:
@@ -128,6 +128,53 @@ The control plane is available in the dashboard and through
 audit views, usage summaries, alert intake, non-secret runtime settings, and
 local attack-lab settings.
 
+Set `MURDOC_ADMIN_TOKEN` to require `X-Murdoc-Admin-Token` or
+`Authorization: Bearer ...` on `/api/control-plane/*`. Leave it empty only for
+local development.
+
+Direct local runs keep control-plane state in memory by default. Set
+`MURDOC_CONTROL_PLANE_FILE`, `MURDOC_GATEWAY_ROUTES_FILE`, or
+`MURDOC_RUNTIME_SETTINGS_FILE` to paths under `data/` when local persistence is
+needed outside Docker.
+
+For local development and test-lab dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Container Deployment
+
+Build and run the gateway with the bundled UI:
+
+```bash
+cp .env.example .env
+docker compose --env-file .env up --build
+```
+
+The container serves:
+
+```text
+Gateway API and UI: http://localhost:8000
+Metrics:            http://localhost:8000/metrics
+Control plane:      http://localhost:8000/api/control-plane/*
+```
+
+Build with optional NeMo Guardrails dependencies when that layer is part of the
+deployment:
+
+```bash
+docker build --build-arg PIP_EXTRAS=nemo -t murdoc/gateway:nemo .
+```
+
+Secrets and provider endpoints stay in environment variables. Non-secret runtime
+settings such as fail-closed behavior, guardrail modes, and thresholds are
+managed through the control plane.
+
+The container persists route profiles, gateway routes, and runtime settings in
+the `murdoc-state` volume. Decision ledger file persistence is opt-in with
+`MURDOC_DECISION_LEDGER_FILE` because it writes once per gateway decision.
+
 ## MCP Proxy
 
 Run the standalone MCP proxy against any stdio MCP server:
@@ -139,7 +186,7 @@ export MCP_DOWNSTREAM_ARGS="tests/fixtures/targets/fake_mcp_server.py"
 export MCP_ENFORCE_TOOL_ALLOWLIST=true
 export MCP_ALLOWED_TOOLS=example:safe_search
 
-python -m mcp_gateway.proxy_server
+python -m murdoc.mcp.proxy_server
 ```
 
 The proxy exposes an MCP server upstream and keeps a downstream MCP session open.

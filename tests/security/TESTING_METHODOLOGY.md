@@ -23,7 +23,7 @@
 ---
 
 ### 2. **Integration Tests** (Full Pipeline)
-**What:** Test all layers together with real Bifrost client.
+**What:** Test all layers together with real Murdoc client.
 
 **Why:**
 - Verify layers work together correctly
@@ -31,7 +31,7 @@
 - Catch integration bugs (e.g., context passing, error propagation)
 
 **How:**
-- Use real Bifrost instance with all plugins loaded
+- Use real Murdoc instance with all plugins loaded
 - Send requests through complete pipeline
 - Verify correct layer blocks/allows requests
 
@@ -42,7 +42,7 @@
 ---
 
 ### 3. **E2E Tests** (Manual Script)
-**What:** Test against running Bifrost server with real HTTP requests.
+**What:** Test against running Murdoc server with real HTTP requests.
 
 **Why:**
 - Validate HTTP transport layer
@@ -50,7 +50,7 @@
 - Verify error responses, status codes, headers
 
 **How:**
-- Start Bifrost server (`make dev`)
+- Start Murdoc server (`make dev`)
 - Send curl requests with various payloads
 - Check HTTP status codes and response bodies
 

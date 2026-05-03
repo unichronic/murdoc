@@ -14,15 +14,14 @@ from mcp.client.stdio import stdio_client
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-from mcp_gateway.mcp_interceptor import secure_call_tool
-from mcp_gateway.security_config import filter_allowed_tools
+from murdoc.mcp.interceptor import secure_call_tool
+from murdoc.mcp.security_config import filter_allowed_tools
 
 load_dotenv()
 
 
 def find_npx() -> tuple[str, str]:
-    """Find npx binary, checking PATH and common nvm locations.
-    Returns (npx_path, node_bin_dir) so node is also reachable."""
+    """Return the npx path and Node bin directory used by the MCP subprocess."""
     npx = shutil.which("npx")
     if npx:
         return npx, os.path.dirname(os.path.realpath(npx))
@@ -85,7 +84,6 @@ async def process_query(
             messages.append({"role": "assistant", "content": final})
             return final
 
-        # Serialize assistant message, removing null values for Gemini compatibility
         msg_dict = {
             "role": "assistant",
             "tool_calls": [

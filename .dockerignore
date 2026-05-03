@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.pytest_cache/
+logs/
+ui/node_modules/
+ui/dist/
+tests/fixtures/targets/runtime/
+

@@ -14,8 +14,8 @@ from mcp.client.stdio import stdio_client
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-from mcp_gateway.mcp_interceptor import secure_call_tool
-from mcp_gateway.security_config import filter_allowed_tools
+from murdoc.mcp.interceptor import secure_call_tool
+from murdoc.mcp.security_config import filter_allowed_tools
 
 load_dotenv()
 
@@ -30,8 +30,7 @@ if not GEMINI_API_KEY:
 
 
 def find_npx() -> tuple[str, str]:
-    """Find npx binary, checking PATH and common nvm locations.
-    Returns (npx_path, node_bin_dir) so node is also reachable."""
+    """Return the npx path and Node bin directory used by the MCP subprocess."""
     npx = shutil.which("npx")
     if npx:
         return npx, os.path.dirname(os.path.realpath(npx))
@@ -64,16 +63,8 @@ def mcp_tools_to_openai_tools(mcp_tools: list) -> list[dict]:
 
 
 async def run_agent(user_query: str) -> str:
-    """
-    Spawn the Notion MCP server, discover tools, and run a
-    multi-turn conversation with the OpenAI model until it
-    produces a final text answer (no more tool calls).
-    """
-
-    # 1. Define how to start the Notion MCP server
     npx_path, node_bin_dir = find_npx()
     env = {**os.environ, "NOTION_TOKEN": NOTION_TOKEN}
-    # Ensure node's bin dir is in PATH so npx can find node
     env["PATH"] = node_bin_dir + os.pathsep + env.get("PATH", "")
 
     server_params = StdioServerParameters(

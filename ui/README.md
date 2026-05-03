@@ -16,5 +16,6 @@ npm run dev
 npm run build
 ```
 
-The production FastAPI gateway lives in `agentvault_gateway.app` at the repo
-root. This directory contains only the React app and its build output.
+The production FastAPI gateway lives in `murdoc.gateway.app` at the repo
+root. `ui/server.py` is a compatibility shim for old local commands; new code
+should import or run `murdoc.gateway.app`.

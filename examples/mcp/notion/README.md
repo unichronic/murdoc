@@ -1,7 +1,7 @@
 # Notion MCP Example
 
 This example shows how to run a downstream Notion MCP server through the
-AgentVault MCP adapter or proxy.
+Murdoc MCP adapter or proxy.
 
 ## Setup
 
@@ -51,7 +51,7 @@ export MCP_DOWNSTREAM_COMMAND=npx
 export MCP_DOWNSTREAM_ARGS="-y @notionhq/notion-mcp-server"
 export NOTION_TOKEN=ntn_...
 
-python -m mcp_gateway.proxy_server
+python -m murdoc.mcp.proxy_server
 ```
 
 Tool filtering can be configured with:

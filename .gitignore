@@ -1,7 +1,12 @@
 logs/
+data/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.venv/
+build/
+dist/
+*.egg-info/
 ui/node_modules/
 ui/dist/
 ui/logs/

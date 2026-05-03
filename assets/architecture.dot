@@ -1,4 +1,4 @@
-digraph AgentVaultFlow {
+digraph MurdocFlow {
   rankdir=LR;
   splines=true;
   nodesep=0.5;
@@ -9,18 +9,18 @@ digraph AgentVaultFlow {
 
   user [label="Agent / App Client", fillcolor="#dbeafe"];
   dashboard [label="React Dashboard\n/ui/dist", fillcolor="#dbeafe"];
-  gateway [label="AgentVault HTTP Gateway\nagentvault_gateway/app.py", fillcolor="#bfdbfe"];
+  gateway [label="Murdoc HTTP Gateway\nmurdoc/gateway/app.py", fillcolor="#bfdbfe"];
   openai [label="OpenAI-Compatible LLM Gateway\n/v1/chat/completions", fillcolor="#dbeafe"];
   httpproxy [label="HTTP Tool/API Gateway\n/proxy/{route_id}/...", fillcolor="#dbeafe"];
-  mcp [label="MCP Gateway\nmcp_gateway/proxy_server.py", fillcolor="#dbeafe"];
-  bifrost [label="Bifrost Runtime Core\nbifrost_gateway/runtime.py", fillcolor="#bfdbfe"];
+  mcp [label="MCP Gateway\nmurdoc/mcp/proxy_server.py", fillcolor="#dbeafe"];
+  runtime [label="Murdoc Runtime Core\nmurdoc/core/runtime.py", fillcolor="#bfdbfe"];
   control [label="Lightweight Control Plane\nroute registry + profiles + versions", fillcolor="#e0e7ff"];
   ledger [label="Decision Ledger\nhashes, verdicts, versions, latency", fillcolor="#e0e7ff"];
 
   lakera [label="Lakera Guard\nprompt attack scan", fillcolor="#fde68a"];
   nemo [label="NeMo Guardrails\nsemantic input rails", fillcolor="#fde68a"];
   presidio_in [label="Presidio Input\nPII detect + redact", fillcolor="#fde68a"];
-  policy [label="OPA-compatible Policy Engine\nsecurity/policy_engine.py", fillcolor="#fde68a"];
+  policy [label="OPA-compatible Policy Engine\nmurdoc/security/policy_engine.py", fillcolor="#fde68a"];
   sanitize [label="Context Sanitization\nfor backend execution", fillcolor="#fde68a"];
   backend [label="Agent / Tool / API Backend\nregistered upstream URL", fillcolor="#c7d2fe"];
   model [label="OpenAI-Compatible Model Provider\nregistered upstream URL", fillcolor="#c7d2fe"];
@@ -62,15 +62,15 @@ digraph AgentVaultFlow {
   user -> mcp [label="MCP tool calls"];
   openai -> gateway;
   httpproxy -> gateway;
-  mcp -> bifrost [label="adapt MCP request"];
-  gateway -> bifrost [label="adapt HTTP request"];
+  mcp -> runtime [label="adapt MCP request"];
+  gateway -> runtime [label="adapt HTTP request"];
   gateway -> control [label="management API"];
-  control -> bifrost [label="local config snapshot"];
-  memory -> bifrost [label="load memory contexts"];
-  bifrost -> lakera [label="1. scan_prompt(text)"];
-  bifrost -> nemo [label="2. scan_semantics(text)"];
-  bifrost -> presidio_in [label="3. scan/redact input"];
-  bifrost -> policy [label="4. build signals + evaluate"];
+  control -> runtime [label="local config snapshot"];
+  memory -> runtime [label="load memory contexts"];
+  runtime -> lakera [label="1. scan_prompt(text)"];
+  runtime -> nemo [label="2. scan_semantics(text)"];
+  runtime -> presidio_in [label="3. scan/redact input"];
+  runtime -> policy [label="4. build signals + evaluate"];
   policy -> sanitize [label="allow path"];
   sanitize -> backend [label="authorized tool/API call"];
   sanitize -> model [label="authorized LLM call"];
@@ -90,14 +90,14 @@ digraph AgentVaultFlow {
   agnoteam -> a2a;
   agnoteam -> crm;
   agnoteam -> email;
-  backend -> bifrost [label="tool calls + response"];
-  bifrost -> presidio_out [label="5. scan/redact output"];
+  backend -> runtime [label="tool calls + response"];
+  runtime -> presidio_out [label="5. scan/redact output"];
   presidio_out -> response;
   response -> user;
   response -> dashboard;
 
-  bifrost -> observability [label="security events"];
-  bifrost -> ledger [label="final decision record"];
+  runtime -> observability [label="security events"];
+  runtime -> ledger [label="final decision record"];
   gateway -> observability [label="HTTP metrics, traces"];
   observability -> otel [label="OTLP export / Prometheus scrape"];
 

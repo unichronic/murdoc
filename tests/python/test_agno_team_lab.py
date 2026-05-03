@@ -35,8 +35,8 @@ def wait_for(url: str, timeout: float = 20.0):
 
 def test_agno_team_target_uses_agno_route_mode_and_member_delegation():
     port = free_port()
-    runtime = tempfile.TemporaryDirectory(prefix="agentvault-agno-team-test-")
-    scan_dir = Path(tempfile.mkdtemp(prefix="agentvault-agno-team-scan-test-"))
+    runtime = tempfile.TemporaryDirectory(prefix="murdoc-agno-team-test-")
+    scan_dir = Path(tempfile.mkdtemp(prefix="murdoc-agno-team-scan-test-"))
     env = os.environ.copy()
     env["AGENT_LAB_RUNTIME_DIR"] = runtime.name
     proc = subprocess.Popen(

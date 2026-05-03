@@ -1,5 +1,5 @@
 """
-Fake downstream MCP server for AgentVault proxy integration tests.
+Fake downstream MCP server for Murdoc proxy integration tests.
 
 It is deliberately small but uses the real MCP stdio transport, so tests cover
 the same process boundary as a real downstream server.
@@ -14,7 +14,7 @@ from mcp import types
 
 
 def create_server() -> Server:
-    server = Server("agentvault-fake-mcp-target")
+    server = Server("murdoc-fake-mcp-target")
 
     @server.list_tools()
     async def list_tools():

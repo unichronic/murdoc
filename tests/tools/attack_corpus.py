@@ -1,5 +1,5 @@
 """
-Reusable attack corpus for AgentVault red teaming.
+Reusable attack corpus for Murdoc red teaming.
 """
 
 from dataclasses import dataclass, field

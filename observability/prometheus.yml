@@ -12,13 +12,13 @@ alerting:
             - alertmanager:9093
 
 scrape_configs:
-  - job_name: agentvault-gateway
+  - job_name: murdoc-gateway
     metrics_path: /metrics
     static_configs:
       - targets:
           - host.docker.internal:8000
         labels:
-          service: agentvault-gateway
+          service: murdoc-gateway
 
   - job_name: prometheus
     static_configs:
