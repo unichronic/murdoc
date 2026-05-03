@@ -35,8 +35,13 @@
 }
 
 .footer-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
   color: var(--text-soft);
   text-decoration: none;
+  font: inherit;
+  cursor: pointer;
 }
 
 .footer-link:hover {

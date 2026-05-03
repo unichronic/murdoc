@@ -4,13 +4,12 @@ export default function Header({ currentView, setCurrentView }) {
   return (
     <header className="site-header">
       <div className="container header-inner">
-        <div className="logo" onClick={() => setCurrentView('main')} style={{ cursor: 'pointer' }}>
-          <div className="logo-mark">M</div>
+        <button type="button" className="logo" onClick={() => setCurrentView('main')}>
           <div className="logo-text">
             <span className="logo-title">Murdoc</span>
-            <span className="logo-subtitle">AI Security Gateway</span>
+            <span className="logo-subtitle">AI security gateway</span>
           </div>
-        </div>
+        </button>
         <nav className="nav">
           {currentView === 'main' ? (
             <>
@@ -19,19 +18,17 @@ export default function Header({ currentView, setCurrentView }) {
               <a href="#faq" className="nav-link">FAQ</a>
               <button
                 type="button"
-                className="nav-link"
-                onClick={() => setCurrentView('demo')}
-                style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer', color: 'var(--text)' }}
+                className="nav-link nav-action"
+                onClick={() => setCurrentView('console')}
               >
-                Interactive Demo
+                Admin Console
               </button>
             </>
           ) : (
             <button
               type="button"
-              className="nav-link"
+              className="nav-link nav-button"
               onClick={() => setCurrentView('main')}
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text)' }}
             >
               Back to Main
             </button>

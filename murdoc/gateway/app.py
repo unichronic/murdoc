@@ -4,10 +4,13 @@
 import sys
 import os
 import csv
+import base64
 import hashlib
+import hmac
 import io
 import json
 import subprocess
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -119,6 +122,10 @@ class FuzzRequest(BaseModel):
     profile: str | None = None
 
 
+class LoginRequest(BaseModel):
+    password: str = ""
+
+
 SENSITIVE_FORWARD_HEADERS = {
     "host",
     "content-length",
@@ -133,6 +140,8 @@ SENSITIVE_FORWARD_HEADERS = {
 }
 
 CONTROL_PLANE_PREFIX = "/api/control-plane"
+CONSOLE_SESSION_COOKIE = "murdoc_console_session"
+CONSOLE_SESSION_TTL_SECONDS = 8 * 60 * 60
 
 
 def _safe_identifier(value: str | None, default: str = "") -> str:
@@ -164,11 +173,70 @@ def _forward_headers(request: Request) -> dict[str, str]:
 def _control_plane_authorized(request: Request) -> bool:
     if not MURDOC_ADMIN_TOKEN:
         return True
+    if _console_session_valid(request):
+        return True
     supplied = request.headers.get("X-Murdoc-Admin-Token", "").strip()
     authorization = request.headers.get("Authorization", "").strip()
     if not supplied and authorization.startswith("Bearer "):
         supplied = authorization.removeprefix("Bearer ").strip()
     return bool(supplied) and constant_time_equals(supplied, MURDOC_ADMIN_TOKEN)
+
+
+def _session_secret() -> str:
+    return MURDOC_ADMIN_TOKEN or "murdoc-local-dev-session"
+
+
+def _sign_session(payload: str) -> str:
+    return hmac.new(_session_secret().encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _create_console_session() -> str:
+    payload = json.dumps(
+        {"sub": "admin", "exp": int(time.time()) + CONSOLE_SESSION_TTL_SECONDS},
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    encoded = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
+    return f"{encoded}.{_sign_session(encoded)}"
+
+
+def _decode_console_session(value: str) -> dict | None:
+    if "." not in value:
+        return None
+    encoded, supplied_sig = value.rsplit(".", 1)
+    if not constant_time_equals(supplied_sig, _sign_session(encoded)):
+        return None
+    padded = encoded + ("=" * (-len(encoded) % 4))
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8"))
+    except (ValueError, json.JSONDecodeError):
+        return None
+    if int(payload.get("exp", 0)) < int(time.time()):
+        return None
+    return payload
+
+
+def _console_session_valid(request: Request) -> bool:
+    value = request.cookies.get(CONSOLE_SESSION_COOKIE, "")
+    return _decode_console_session(value) is not None
+
+
+def _set_console_cookie(response: JSONResponse) -> JSONResponse:
+    response.set_cookie(
+        CONSOLE_SESSION_COOKIE,
+        _create_console_session(),
+        max_age=CONSOLE_SESSION_TTL_SECONDS,
+        httponly=True,
+        secure=False,
+        samesite="strict",
+        path="/",
+    )
+    return response
+
+
+def _clear_console_cookie(response: JSONResponse) -> JSONResponse:
+    response.delete_cookie(CONSOLE_SESSION_COOKIE, path="/", samesite="strict")
+    return response
 
 
 def _join_upstream_url(upstream_url: str, path: str = "") -> str:
@@ -316,6 +384,34 @@ def create_app() -> FastAPI:
                 "count": len(control_plane.list_profiles()),
             },
         }
+
+    @app.get("/api/auth/status")
+    async def auth_status():
+        return {
+            "auth_required": bool(MURDOC_ADMIN_TOKEN),
+            "authenticated": not bool(MURDOC_ADMIN_TOKEN),
+        }
+
+    @app.get("/api/auth/me")
+    async def auth_me(request: Request):
+        authenticated = not bool(MURDOC_ADMIN_TOKEN) or _console_session_valid(request)
+        return {
+            "auth_required": bool(MURDOC_ADMIN_TOKEN),
+            "authenticated": authenticated,
+            "subject": "admin" if authenticated else "",
+        }
+
+    @app.post("/api/auth/login")
+    async def auth_login(body: LoginRequest):
+        if not MURDOC_ADMIN_TOKEN:
+            return {"authenticated": True, "subject": "local"}
+        if not constant_time_equals(body.password, MURDOC_ADMIN_TOKEN):
+            raise HTTPException(status_code=401, detail="invalid credentials")
+        return _set_console_cookie(JSONResponse({"authenticated": True, "subject": "admin"}))
+
+    @app.post("/api/auth/logout")
+    async def auth_logout():
+        return _clear_console_cookie(JSONResponse({"authenticated": False}))
 
     @app.get("/metrics")
     async def metrics():
@@ -756,11 +852,18 @@ def create_app() -> FastAPI:
             return {
                 'total_requests': total_req,
                 'threats_blocked': blocked_req,
+                'pii_entities_detected': pii_req,
                 'pii_entities_redacted': pii_req,
                 'source': 'prometheus',
             }
         except Exception:
-            return {'total_requests': 0, 'threats_blocked': 0, 'pii_entities_redacted': 0, 'source': 'unavailable'}
+            return {
+                'total_requests': 0,
+                'threats_blocked': 0,
+                'pii_entities_detected': 0,
+                'pii_entities_redacted': 0,
+                'source': 'unavailable',
+            }
 
     @app.get("/")
     async def index():
@@ -768,6 +871,10 @@ def create_app() -> FastAPI:
         if os.path.exists(index_file):
             return FileResponse(index_file)
         return JSONResponse({"status": "UI build not found. Run 'npm run build'."})
+
+    @app.get("/console")
+    async def console_index():
+        return await index()
 
     # Dev note: mount the SPA after API routes so it cannot catch gateway endpoints.
     if os.path.exists(static_folder):

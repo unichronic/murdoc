@@ -1,5 +1,3 @@
-import './Problem.css'
-
 export default function Problem() {
   return (
     <section id="problem" className="section section-alt">

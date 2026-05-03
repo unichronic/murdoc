@@ -11,8 +11,8 @@
   --text-muted: rgba(255, 255, 255, 0.85);
   --text-soft: rgba(255, 255, 255, 0.65);
   --border: rgba(255, 255, 255, 0.12);
-  --radius: 20px;
-  --radius-lg: 20px;
+  --radius: 8px;
+  --radius-lg: 12px;
 }
 
 *,
@@ -28,7 +28,7 @@ html, body {
 
 body {
   font-family: "Space Grotesk", system-ui, sans-serif;
-  font-size: 19px;
+  font-size: 16px;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;

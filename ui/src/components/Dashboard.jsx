@@ -5,7 +5,7 @@ function useStats() {
     const [stats, setStats] = useState({
         total_requests: 0,
         threats_blocked: 0,
-        pii_entities_redacted: 0,
+        pii_entities_detected: 0,
         source: 'loading',
     })
 
@@ -26,12 +26,18 @@ function useStats() {
 
 export default function Dashboard() {
     const liveStats = useStats()
+    const formatNumber = value => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '-'
+    const sourceLabel = liveStats.source === 'prometheus'
+        ? 'Metrics'
+        : liveStats.source === 'loading'
+            ? 'Loading'
+            : 'Unavailable'
 
     const stats = [
-        { label: 'Total Requests', value: liveStats.total_requests || '-' },
-        { label: 'Threats Blocked', value: liveStats.threats_blocked || '-' },
-        { label: 'PII Entities Redacted', value: liveStats.pii_entities_redacted || '-' },
-        { label: 'Security Layers Active', value: 4 },
+        { label: 'Gateway Requests', value: formatNumber(liveStats.total_requests), note: 'Live traffic processed by Murdoc' },
+        { label: 'Gateway Blocks', value: formatNumber(liveStats.threats_blocked), note: 'Block decisions at gateway layer' },
+        { label: 'PII Entities Detected', value: formatNumber(liveStats.pii_entities_detected), note: 'Detected by scanner metrics' },
+        { label: 'Stats Source', value: sourceLabel, note: 'Derived from Murdoc metrics registry' },
     ]
 
     const activities = [
@@ -54,8 +60,24 @@ export default function Dashboard() {
                         <div key={i} className="stat-card">
                             <span className="stat-value">{stat.value}</span>
                             <span className="stat-label">{stat.label}</span>
+                            <span className="stat-note">{stat.note}</span>
                         </div>
                     ))}
+                </div>
+
+                <div className="observability-panel">
+                    <div>
+                        <h3>Observability</h3>
+                        <p>
+                            Open operational dashboards for metrics, traces, logs, and alerts when
+                            the observability stack is enabled.
+                        </p>
+                    </div>
+                    <div className="observability-links">
+                        <a href="http://localhost:3000" target="_blank" rel="noreferrer">Grafana</a>
+                        <a href="http://localhost:9090" target="_blank" rel="noreferrer">Prometheus</a>
+                        <a href="http://localhost:9093" target="_blank" rel="noreferrer">Alertmanager</a>
+                    </div>
                 </div>
 
                 <div className="recent-activity">

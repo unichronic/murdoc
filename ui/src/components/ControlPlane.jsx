@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getJson, putJson } from '../lib/controlPlaneApi'
 import './ControlPlane.css'
 
 const GUARDRAIL_LABELS = {
@@ -10,6 +11,51 @@ const GUARDRAIL_LABELS = {
 
 const GUARDRAIL_MODES = ['disabled', 'advisory', 'advisory_high_risk', 'enforce']
 const GATEWAY_ROUTE_KINDS = ['llm_openai', 'http_tool', 'agent_http']
+const CONTROL_SECTIONS = [
+    { id: 'routing', label: 'Routing', note: 'Register model, tool, and agent upstreams.' },
+    { id: 'protection', label: 'Protection', note: 'Tune guardrail modes and non-secret runtime behavior.' },
+]
+
+const PROFILE_GUIDE = {
+    'default-agent': {
+        label: 'Default agent traffic',
+        use: 'General agent requests where the risk level is mixed or not yet classified.',
+        posture: 'Balanced checks with prompt, data, policy, and semantic review enabled.',
+    },
+    'read-only-low-risk': {
+        label: 'Read-only low risk',
+        use: 'Summaries, lookups, and answer-only workflows that should not change systems.',
+        posture: 'Lower latency, higher rate limit, and caching for safe read-only traffic.',
+    },
+    'tool-write': {
+        label: 'Tool or write actions',
+        use: 'Workflows that update tickets, write memory, send messages, or call tools.',
+        posture: 'Stricter policy path with caching disabled for state-changing actions.',
+    },
+    'admin-high-impact': {
+        label: 'High-impact admin actions',
+        use: 'Approved exports, external sends, privileged operations, and sensitive changes.',
+        posture: 'Strictest default posture with tighter rate limits and enforced semantic checks.',
+    },
+    'mcp-tool': {
+        label: 'MCP tool traffic',
+        use: 'MCP tool discovery, tool calls, and tool-result inspection.',
+        posture: 'Tool-focused checks with semantic review and no read cache.',
+    },
+}
+
+const HELP = {
+    route_profile: 'Route profiles define how a class of traffic is protected. Gateway routes attach to one profile.',
+    runtime_settings: 'Runtime settings are non-secret global defaults for the gateway runtime.',
+    prompt_threshold: 'Higher values reduce prompt-scanner sensitivity. Keep this conservative until false positives are understood.',
+    policy_timeout: 'Maximum time Murdoc waits for policy evaluation before applying fail-open or fail-closed behavior.',
+    require_prompt_scanner: 'When enabled, Murdoc blocks if the prompt scanner is unavailable.',
+    semantic_required: 'When enabled, Murdoc treats semantic guardrail availability as required.',
+    semantic_enforce: 'When enabled, semantic guardrail blocks are enforced globally instead of advisory.',
+    fail_closed: 'When enabled, policy-service errors block requests instead of allowing them.',
+    gateway_route: 'Gateway routes expose upstream models, tools, or agents through Murdoc.',
+    strip_prefix: 'For proxy routes, forward the request path without the gateway route prefix.',
+}
 
 const DEFAULT_GATEWAY_ROUTE = {
     route_id: 'default-llm',
@@ -20,18 +66,6 @@ const DEFAULT_GATEWAY_ROUTE = {
     strip_prefix: true,
     timeout_seconds: 30,
     owner: 'local',
-}
-
-const DEFAULT_TEST_CONFIG = {
-    corpus_profile: 'baseline',
-    target: 'agno',
-    mode: 'gateway',
-    iterations: 1,
-    concurrency: 1,
-    duration_seconds: 0,
-    include_stateful: false,
-    run_a2a_scanner: false,
-    real_services: false,
 }
 
 const DEFAULT_RUNTIME_SETTINGS = {
@@ -48,21 +82,12 @@ const DEFAULT_RUNTIME_SETTINGS = {
     opa_timeout_seconds: 1,
 }
 
-async function getJson(path) {
-    const response = await fetch(path)
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
-    return response.json()
-}
-
-async function putJson(path, body) {
-    const response = await fetch(path, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    })
-    const payload = await response.json()
-    if (!response.ok) throw new Error(payload.detail || `${response.status} ${response.statusText}`)
-    return payload
+function Info({ text }) {
+    return (
+        <span className="cp-info" title={text} aria-label={text} tabIndex="0">
+            i
+        </span>
+    )
 }
 
 export default function ControlPlane() {
@@ -72,13 +97,9 @@ export default function ControlPlane() {
     const [gatewayRoutes, setGatewayRoutes] = useState([])
     const [selectedGatewayRoute, setSelectedGatewayRoute] = useState('default-llm')
     const [gatewayRouteDraft, setGatewayRouteDraft] = useState(DEFAULT_GATEWAY_ROUTE)
-    const [testConfig, setTestConfig] = useState(DEFAULT_TEST_CONFIG)
     const [runtimeSettings, setRuntimeSettings] = useState(DEFAULT_RUNTIME_SETTINGS)
-    const [corpus, setCorpus] = useState(null)
-    const [targets, setTargets] = useState([])
     const [status, setStatus] = useState('')
-    const [runSummary, setRunSummary] = useState(null)
-    const [runningLab, setRunningLab] = useState(false)
+    const [activeSection, setActiveSection] = useState('routing')
 
     const selectedProfile = useMemo(
         () => profiles.find(item => item.route_id === selectedRoute) || profiles[0],
@@ -91,13 +112,10 @@ export default function ControlPlane() {
     )
 
     const loadControlPlane = async () => {
-        const [profilesPayload, gatewayRoutesPayload, configPayload, runtimePayload, corpusPayload, targetsPayload] = await Promise.all([
+        const [profilesPayload, gatewayRoutesPayload, runtimePayload] = await Promise.all([
             getJson('/api/control-plane/profiles'),
             getJson('/api/control-plane/gateway-routes'),
-            getJson('/api/control-plane/test-config'),
             getJson('/api/control-plane/runtime-settings'),
-            getJson('/api/control-plane/test-corpus'),
-            getJson('/api/control-plane/test-targets'),
         ])
         const loadedProfiles = profilesPayload.profiles || []
         const loadedGatewayRoutes = gatewayRoutesPayload.routes || []
@@ -112,10 +130,7 @@ export default function ControlPlane() {
                 profile_id: loadedProfiles[0]?.route_id || DEFAULT_GATEWAY_ROUTE.profile_id,
             })
         }
-        setTestConfig({ ...DEFAULT_TEST_CONFIG, ...configPayload })
         setRuntimeSettings({ ...DEFAULT_RUNTIME_SETTINGS, ...runtimePayload })
-        setCorpus(corpusPayload)
-        setTargets(targetsPayload.targets || [])
     }
 
     useEffect(() => {
@@ -147,35 +162,36 @@ export default function ControlPlane() {
     const saveProfile = async () => {
         if (!profileDraft) return
         setStatus('Saving route profile...')
-        const saved = await putJson(`/api/control-plane/profiles/${profileDraft.route_id}`, {
-            description: profileDraft.description,
-            guardrails: profileDraft.guardrails,
-            policy_version: profileDraft.policy_version,
-            latency_budget_ms: Number(profileDraft.latency_budget_ms),
-            rate_limit_rpm: Number(profileDraft.rate_limit_rpm),
-            monthly_budget_usd: Number(profileDraft.monthly_budget_usd),
-            estimated_cost_per_1k_tokens_usd: Number(profileDraft.estimated_cost_per_1k_tokens_usd),
-            cache_read_only: Boolean(profileDraft.cache_read_only),
-            rollout: profileDraft.rollout,
-            owner: profileDraft.owner,
-        })
-        setProfiles(items => items.map(item => item.route_id === saved.route_id ? saved : item))
-        setProfileDraft(saved)
-        setStatus('Route profile saved.')
-    }
-
-    const saveTestConfig = async () => {
-        setStatus('Saving test configuration...')
-        const saved = await putJson('/api/control-plane/test-config', testConfig)
-        setTestConfig(saved)
-        setStatus('Test configuration saved.')
+        try {
+            const saved = await putJson(`/api/control-plane/profiles/${profileDraft.route_id}`, {
+                description: profileDraft.description,
+                guardrails: profileDraft.guardrails,
+                policy_version: profileDraft.policy_version,
+                latency_budget_ms: Number(profileDraft.latency_budget_ms),
+                rate_limit_rpm: Number(profileDraft.rate_limit_rpm),
+                monthly_budget_usd: Number(profileDraft.monthly_budget_usd),
+                estimated_cost_per_1k_tokens_usd: Number(profileDraft.estimated_cost_per_1k_tokens_usd),
+                cache_read_only: Boolean(profileDraft.cache_read_only),
+                rollout: profileDraft.rollout,
+                owner: profileDraft.owner,
+            })
+            setProfiles(items => items.map(item => item.route_id === saved.route_id ? saved : item))
+            setProfileDraft(saved)
+            setStatus('Route profile saved.')
+        } catch (error) {
+            setStatus(`Could not save route profile: ${error.message}`)
+        }
     }
 
     const saveRuntimeSettings = async () => {
         setStatus('Saving runtime settings...')
-        const saved = await putJson('/api/control-plane/runtime-settings', runtimeSettings)
-        setRuntimeSettings(saved)
-        setStatus('Runtime settings saved.')
+        try {
+            const saved = await putJson('/api/control-plane/runtime-settings', runtimeSettings)
+            setRuntimeSettings(saved)
+            setStatus('Runtime settings saved.')
+        } catch (error) {
+            setStatus(`Could not save runtime settings: ${error.message}`)
+        }
     }
 
     const newGatewayRoute = () => {
@@ -195,38 +211,25 @@ export default function ControlPlane() {
             return
         }
         setStatus('Saving gateway route...')
-        const saved = await putJson(`/api/control-plane/gateway-routes/${routeId}`, {
-            upstream_url: gatewayRouteDraft.upstream_url,
-            kind: gatewayRouteDraft.kind,
-            profile_id: gatewayRouteDraft.profile_id,
-            description: gatewayRouteDraft.description,
-            strip_prefix: Boolean(gatewayRouteDraft.strip_prefix),
-            timeout_seconds: Number(gatewayRouteDraft.timeout_seconds),
-            owner: gatewayRouteDraft.owner,
-        })
-        setGatewayRoutes(items => {
-            const exists = items.some(item => item.route_id === saved.route_id)
-            return exists ? items.map(item => item.route_id === saved.route_id ? saved : item) : [...items, saved]
-        })
-        setSelectedGatewayRoute(saved.route_id)
-        setGatewayRouteDraft(saved)
-        setStatus('Gateway route saved.')
-    }
-
-    const runLab = async () => {
-        setRunningLab(true)
-        setRunSummary(null)
-        setStatus('Starting local attack lab...')
         try {
-            const response = await fetch('/api/control-plane/test-run', { method: 'POST' })
-            const payload = await response.json()
-            const summary = payload.result?.gateway_summary || payload.result?.raw_summary || null
-            setRunSummary({ ok: payload.ok, returncode: payload.returncode, summary, stderr: payload.stderr })
-            setStatus(payload.ok ? 'Attack lab completed.' : 'Attack lab returned failures.')
+            const saved = await putJson(`/api/control-plane/gateway-routes/${routeId}`, {
+                upstream_url: gatewayRouteDraft.upstream_url,
+                kind: gatewayRouteDraft.kind,
+                profile_id: gatewayRouteDraft.profile_id,
+                description: gatewayRouteDraft.description,
+                strip_prefix: Boolean(gatewayRouteDraft.strip_prefix),
+                timeout_seconds: Number(gatewayRouteDraft.timeout_seconds),
+                owner: gatewayRouteDraft.owner,
+            })
+            setGatewayRoutes(items => {
+                const exists = items.some(item => item.route_id === saved.route_id)
+                return exists ? items.map(item => item.route_id === saved.route_id ? saved : item) : [...items, saved]
+            })
+            setSelectedGatewayRoute(saved.route_id)
+            setGatewayRouteDraft(saved)
+            setStatus('Gateway route saved.')
         } catch (error) {
-            setStatus(`Attack lab failed: ${error.message}`)
-        } finally {
-            setRunningLab(false)
+            setStatus(`Could not save gateway route: ${error.message}`)
         }
     }
 
@@ -238,23 +241,42 @@ export default function ControlPlane() {
         )
     }
 
-    const corpusProfile = corpus?.profiles?.[testConfig.corpus_profile]
-
     return (
         <section className="control-plane" id="control-plane">
             <div className="container">
                 <header className="section-header cp-header">
                     <div>
                         <h2>Control Plane</h2>
-                        <p>Manage route behavior, red-team corpus selection, and local target runs from one place.</p>
+                        <p>Configure what agents can reach and how gateway traffic is protected.</p>
                     </div>
-                    {status && <span className="cp-status">{status}</span>}
+                    <div className="cp-header-tools">
+                        {status && <span className="cp-status">{status}</span>}
+                    </div>
                 </header>
 
-                <div className="cp-grid">
+                <div className="cp-tabs" role="tablist" aria-label="Control plane sections">
+                    {CONTROL_SECTIONS.map(section => (
+                        <button
+                            key={section.id}
+                            type="button"
+                            className={`cp-tab ${activeSection === section.id ? 'cp-tab-active' : ''}`}
+                            onClick={() => setActiveSection(section.id)}
+                        >
+                            <span>{section.label}</span>
+                            <small>{section.note}</small>
+                        </button>
+                    ))}
+                </div>
+
+                <div className={`cp-grid cp-grid-${activeSection}`}>
+                    {activeSection === 'protection' && (
+                        <>
                     <div className="cp-panel">
                         <div className="cp-panel-title">
-                            <h3>Route Profile</h3>
+                            <div>
+                                <h3>Route Profile <Info text={HELP.route_profile} /></h3>
+                                <p>Choose the default protection posture for a route or agent workflow.</p>
+                            </div>
                             <select value={selectedRoute} onChange={event => setSelectedRoute(event.target.value)}>
                                 {profiles.map(profile => (
                                     <option key={profile.route_id} value={profile.route_id}>{profile.route_id}</option>
@@ -269,6 +291,18 @@ export default function ControlPlane() {
                                 onChange={event => setProfileDraft({ ...profileDraft, description: event.target.value })}
                             />
                         </label>
+
+                        <div className="cp-profile-guide">
+                            <div>
+                                <span className="cp-guide-kicker">Profile guide</span>
+                                <strong>{PROFILE_GUIDE[profileDraft.route_id]?.label || 'Custom profile'}</strong>
+                                <p>{PROFILE_GUIDE[profileDraft.route_id]?.use || 'Custom protection profile for a specific route or workflow.'}</p>
+                            </div>
+                            <div>
+                                <span className="cp-guide-kicker">Posture</span>
+                                <p>{PROFILE_GUIDE[profileDraft.route_id]?.posture || 'Use the guardrail, rate, latency, and cache controls below to define this profile.'}</p>
+                            </div>
+                        </div>
 
                         <div className="cp-guardrails">
                             {Object.entries(GUARDRAIL_LABELS).map(([name, label]) => (
@@ -321,13 +355,16 @@ export default function ControlPlane() {
 
                     <div className="cp-panel">
                         <div className="cp-panel-title">
-                            <h3>Runtime Settings</h3>
+                            <div>
+                                <h3>Runtime Settings <Info text={HELP.runtime_settings} /></h3>
+                                <p>Global non-secret switches. Keep these conservative for production-like tests.</p>
+                            </div>
                             <span className="cp-pill">Non-secret</span>
                         </div>
 
                         <div className="cp-inline-fields">
                             <label className="cp-field">
-                                <span>Prompt threshold</span>
+                                <span>Prompt threshold <Info text={HELP.prompt_threshold} /></span>
                                 <input
                                     type="number"
                                     min="0"
@@ -338,7 +375,7 @@ export default function ControlPlane() {
                                 />
                             </label>
                             <label className="cp-field">
-                                <span>Policy timeout seconds</span>
+                                <span>Policy timeout seconds <Info text={HELP.policy_timeout} /></span>
                                 <input
                                     type="number"
                                     min="0.05"
@@ -357,7 +394,7 @@ export default function ControlPlane() {
                                     checked={Boolean(runtimeSettings.lakera_required)}
                                     onChange={event => setRuntimeSettings({ ...runtimeSettings, lakera_required: event.target.checked })}
                                 />
-                                <span>Require prompt scanner</span>
+                                <span>Require prompt scanner <Info text={HELP.require_prompt_scanner} /></span>
                             </label>
                             <label className="cp-check">
                                 <input
@@ -381,7 +418,7 @@ export default function ControlPlane() {
                                     checked={Boolean(runtimeSettings.nemo_guardrails_required)}
                                     onChange={event => setRuntimeSettings({ ...runtimeSettings, nemo_guardrails_required: event.target.checked })}
                                 />
-                                <span>Require semantic guardrails</span>
+                                <span>Require semantic guardrails <Info text={HELP.semantic_required} /></span>
                             </label>
                             <label className="cp-check">
                                 <input
@@ -389,7 +426,7 @@ export default function ControlPlane() {
                                     checked={Boolean(runtimeSettings.nemo_guardrails_enforce)}
                                     onChange={event => setRuntimeSettings({ ...runtimeSettings, nemo_guardrails_enforce: event.target.checked })}
                                 />
-                                <span>Enforce semantic blocks globally</span>
+                                <span>Enforce semantic blocks globally <Info text={HELP.semantic_enforce} /></span>
                             </label>
                             <label className="cp-check">
                                 <input
@@ -405,7 +442,7 @@ export default function ControlPlane() {
                                     checked={Boolean(runtimeSettings.opa_fail_closed)}
                                     onChange={event => setRuntimeSettings({ ...runtimeSettings, opa_fail_closed: event.target.checked })}
                                 />
-                                <span>Fail closed when policy service is unavailable</span>
+                                <span>Fail closed when policy service is unavailable <Info text={HELP.fail_closed} /></span>
                             </label>
                         </div>
 
@@ -435,10 +472,16 @@ export default function ControlPlane() {
 
                         <button type="button" className="cp-button" onClick={saveRuntimeSettings}>Save runtime settings</button>
                     </div>
+                        </>
+                    )}
 
+                    {activeSection === 'routing' && (
                     <div className="cp-panel">
                         <div className="cp-panel-title">
-                            <h3>Gateway Route</h3>
+                            <div>
+                                <h3>Gateway Route <Info text={HELP.gateway_route} /></h3>
+                                <p>Register one upstream and attach it to a protection profile.</p>
+                            </div>
                             <select
                                 value={selectedGatewayRoute}
                                 onChange={event => setSelectedGatewayRoute(event.target.value)}
@@ -473,10 +516,10 @@ export default function ControlPlane() {
                         </div>
 
                         <label className="cp-field cp-spaced-field">
-                            <span>Upstream URL</span>
+                            <span>Upstream</span>
                             <input
                                 value={gatewayRouteDraft.upstream_url || ''}
-                                placeholder="https://api.openai.com"
+                                placeholder="Model or service destination"
                                 onChange={event => setGatewayRouteDraft({ ...gatewayRouteDraft, upstream_url: event.target.value })}
                             />
                         </label>
@@ -520,7 +563,7 @@ export default function ControlPlane() {
                                 checked={Boolean(gatewayRouteDraft.strip_prefix)}
                                 onChange={event => setGatewayRouteDraft({ ...gatewayRouteDraft, strip_prefix: event.target.checked })}
                             />
-                            <span>Strip /proxy route prefix before forwarding</span>
+                            <span>Forward without gateway prefix <Info text={HELP.strip_prefix} /></span>
                         </label>
 
                         <div className="cp-actions">
@@ -528,116 +571,8 @@ export default function ControlPlane() {
                             <button type="button" className="cp-button cp-button-secondary" onClick={newGatewayRoute}>New route</button>
                         </div>
                     </div>
+                    )}
 
-                    <div className="cp-panel">
-                        <div className="cp-panel-title">
-                            <h3>Attack Lab</h3>
-                            <span className="cp-pill">Local targets</span>
-                        </div>
-
-                        <div className="cp-inline-fields">
-                            <label className="cp-field">
-                                <span>Corpus</span>
-                                <select
-                                    value={testConfig.corpus_profile}
-                                    onChange={event => setTestConfig({ ...testConfig, corpus_profile: event.target.value })}
-                                >
-                                    <option value="baseline">baseline</option>
-                                    <option value="extended">extended</option>
-                                </select>
-                            </label>
-                            <label className="cp-field">
-                                <span>Target</span>
-                                <select
-                                    value={testConfig.target}
-                                    onChange={event => setTestConfig({ ...testConfig, target: event.target.value })}
-                                >
-                                    {targets.map(target => (
-                                        <option key={target.id} value={target.id}>{target.label}</option>
-                                    ))}
-                                </select>
-                            </label>
-                        </div>
-
-                        {corpusProfile && (
-                            <div className="cp-corpus-summary">
-                                <span>{corpusProfile.payloads} payloads</span>
-                                <span>{corpusProfile.adversarial} adversarial</span>
-                                <span>{corpusProfile.benign} benign</span>
-                                <span>{corpus?.stateful_scenarios?.length || 0} stateful scenarios</span>
-                            </div>
-                        )}
-
-                        <div className="cp-inline-fields">
-                            <label className="cp-field">
-                                <span>Mode</span>
-                                <select
-                                    value={testConfig.mode}
-                                    onChange={event => setTestConfig({ ...testConfig, mode: event.target.value })}
-                                >
-                                    <option value="gateway">gateway</option>
-                                    <option value="raw">raw</option>
-                                    <option value="compare">compare</option>
-                                </select>
-                            </label>
-                            <label className="cp-field">
-                                <span>Iterations</span>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="20"
-                                    value={testConfig.iterations}
-                                    onChange={event => setTestConfig({ ...testConfig, iterations: Number(event.target.value) })}
-                                />
-                            </label>
-                            <label className="cp-field">
-                                <span>Concurrency</span>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="16"
-                                    value={testConfig.concurrency}
-                                    onChange={event => setTestConfig({ ...testConfig, concurrency: Number(event.target.value) })}
-                                />
-                            </label>
-                        </div>
-
-                        <label className="cp-check">
-                            <input
-                                type="checkbox"
-                                checked={Boolean(testConfig.include_stateful)}
-                                onChange={event => setTestConfig({ ...testConfig, include_stateful: event.target.checked })}
-                            />
-                            <span>Include stateful scenarios</span>
-                        </label>
-                        <label className="cp-check">
-                            <input
-                                type="checkbox"
-                                checked={Boolean(testConfig.run_a2a_scanner)}
-                                onChange={event => setTestConfig({ ...testConfig, run_a2a_scanner: event.target.checked })}
-                            />
-                            <span>Run agent-to-agent scanner when available</span>
-                        </label>
-
-                        <div className="cp-actions">
-                            <button type="button" className="cp-button" onClick={saveTestConfig}>Save test setup</button>
-                            <button type="button" className="cp-button cp-button-secondary" onClick={runLab} disabled={runningLab}>
-                                {runningLab ? 'Running lab...' : 'Run lab'}
-                            </button>
-                        </div>
-
-                        {runSummary && (
-                            <div className={`cp-run-summary ${runSummary.ok ? 'cp-run-pass' : 'cp-run-fail'}`}>
-                                <strong>{runSummary.ok ? 'Completed' : 'Failed'}</strong>
-                                {runSummary.summary && (
-                                    <span>
-                                        {runSummary.summary.prevention_rate}% prevention, {runSummary.summary.false_positives} false positives, {runSummary.summary.errors} errors
-                                    </span>
-                                )}
-                                {!runSummary.ok && runSummary.stderr && <code>{runSummary.stderr}</code>}
-                            </div>
-                        )}
-                    </div>
                 </div>
             </div>
         </section>

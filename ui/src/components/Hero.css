@@ -31,3 +31,23 @@
   line-height: 1.6;
   margin: 0;
 }
+
+.hero-actions {
+  margin-top: 2rem;
+}
+
+.hero-action {
+  min-height: 44px;
+  padding: 0.75rem 1.4rem;
+  border: 1px solid var(--cyan);
+  border-radius: 6px;
+  background: var(--cyan);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hero-action:hover {
+  filter: brightness(1.04);
+}

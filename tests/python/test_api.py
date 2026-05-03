@@ -18,6 +18,7 @@ from murdoc.security.control_plane import runtime_settings
 
 @pytest.fixture(autouse=True)
 def local_policy_defaults(monkeypatch):
+    gateway_server.MURDOC_ADMIN_TOKEN = ""
     policy_engine.OPA_POLICY_URL = ""
     policy_engine.OPA_FAIL_CLOSED = False
     runtime_module.OPA_POLICY_URL = ""
@@ -95,15 +96,42 @@ def test_admin_token_protects_control_plane_only(monkeypatch):
     monkeypatch.setattr(gateway_server, "MURDOC_ADMIN_TOKEN", "test-admin-token")
     client = client_for()
 
+    status = client.get("/api/auth/status")
+    me_before = client.get("/api/auth/me")
     blocked = client.get("/api/control-plane/profiles")
     allowed = client.get("/api/control-plane/profiles", headers={"X-Murdoc-Admin-Token": "test-admin-token"})
     bearer = client.get("/api/control-plane/profiles", headers={"Authorization": "Bearer test-admin-token"})
     process = client.post("/api/process", json={"text": "What is Python?"})
 
+    assert status.json()["auth_required"] is True
+    assert status.json()["authenticated"] is False
+    assert me_before.json()["authenticated"] is False
     assert blocked.status_code == 401
     assert allowed.status_code == 200
     assert bearer.status_code == 200
     assert process.status_code == 200
+
+
+def test_console_session_authenticates_control_plane(monkeypatch):
+    monkeypatch.setattr(gateway_server, "MURDOC_ADMIN_TOKEN", "test-admin-token")
+    client = client_for()
+
+    bad_login = client.post("/api/auth/login", json={"password": "wrong"})
+    blocked = client.get("/api/control-plane/profiles")
+    login = client.post("/api/auth/login", json={"password": "test-admin-token"})
+    me_after = client.get("/api/auth/me")
+    allowed = client.get("/api/control-plane/profiles")
+    logout = client.post("/api/auth/logout")
+    blocked_after_logout = client.get("/api/control-plane/profiles")
+
+    assert bad_login.status_code == 401
+    assert blocked.status_code == 401
+    assert login.status_code == 200
+    assert login.json()["authenticated"] is True
+    assert me_after.json()["authenticated"] is True
+    assert allowed.status_code == 200
+    assert logout.status_code == 200
+    assert blocked_after_logout.status_code == 401
 
 
 def test_health_and_readiness_endpoints():
@@ -117,6 +145,16 @@ def test_health_and_readiness_endpoints():
     assert ready.status_code == 200
     assert ready.json()["status"] == "ready"
     assert "semantic" in ready.json()["checks"]
+
+
+def test_console_route_serves_spa_when_built():
+    client = client_for()
+
+    response = client.get("/console")
+
+    assert response.status_code in {200, 404}
+    if response.status_code == 200:
+        assert "text/html" in response.headers.get("content-type", "")
 
 
 def test_gateway_rejects_empty_text():

@@ -26,12 +26,20 @@ function StatusBadge({ result }) {
     return <span className="rt-badge rt-badge-bypass">Bypassed</span>
 }
 
-export default function RedTeamPanel() {
+export default function RedTeamPanel({
+    embedded = false,
+    title = 'Automated Red Teaming',
+    description = 'Run adversarial payloads through the Murdoc Gateway and review which requests were blocked by policy or bypassed for further tuning.',
+    buttonLabel = 'Run Red Team Scan',
+}) {
     const [running, setRunning] = useState(false)
     const [done, setDone] = useState(false)
     const [results, setResults] = useState([])
     const [summary, setSummary] = useState(null)
     const [expanded, setExpanded] = useState(null)
+
+    const falsePositiveCount = results.filter(result => result.should_pass && result.blocked).length
+    const opaUnavailable = results.some(result => String(result.blocked_by || '').includes('opa_unavailable'))
 
     const runFuzzer = async () => {
         setRunning(true)
@@ -53,19 +61,14 @@ export default function RedTeamPanel() {
         }
     }
 
-    return (
-        <section className="red-team-panel" id="red-team">
-            <div className="container">
+    const content = (
+        <>
                 <header className="rt-header">
                     <div className="rt-title-row">
-                        <h2>Automated Red Teaming</h2>
+                        <h2>{title}</h2>
                         <span className="rt-badge-label">OWASP LLM Top 10</span>
                     </div>
-                    <p>
-                        Run adversarial payloads through the Murdoc Gateway and
-                        review which requests were <strong>Blocked</strong> by
-                        policy or <strong>Bypassed</strong> for further tuning.
-                    </p>
+                    <p>{description}</p>
                 </header>
 
                 <div className="rt-controls">
@@ -77,7 +80,7 @@ export default function RedTeamPanel() {
                         {running ? (
                             <span className="rt-spinner">Running fuzzer...</span>
                         ) : (
-                            'Run Red Team Scan'
+                            buttonLabel
                         )}
                     </button>
                 </div>
@@ -93,14 +96,24 @@ export default function RedTeamPanel() {
                             <span className="rt-summary-label">Attacks Blocked</span>
                         </div>
                         <div className="rt-summary-stat">
-                            <span className="rt-summary-value">{summary.total - summary.adversarial}</span>
+                            <span className="rt-summary-value">{Math.max(0, summary.total - summary.adversarial - falsePositiveCount)}</span>
                             <span className="rt-summary-label">Benign Passed</span>
+                        </div>
+                        <div className="rt-summary-stat">
+                            <span className="rt-summary-value">{falsePositiveCount}</span>
+                            <span className="rt-summary-label">False Positives</span>
                         </div>
                         <div className="rt-summary-compliance">
                             {summary.owasp_pass
                                 ? 'OWASP LLM threshold met (95%+ prevention)'
                                 : 'Below OWASP threshold - tighten policies'}
                         </div>
+                    </div>
+                )}
+
+                {opaUnavailable && (
+                    <div className="rt-warning">
+                        Policy service is unreachable and fail-closed is blocking benign requests. Start OPA, clear OPA_POLICY_URL for local testing, or turn off fail-closed before trusting this scan.
                     </div>
                 )}
 
@@ -155,10 +168,23 @@ export default function RedTeamPanel() {
 
                 {!running && !done && (
                     <div className="rt-empty">
-                        <p>Press <strong>Run Red Team Scan</strong> to test adversarial payloads through the gateway.</p>
+                        <p>Press <strong>{buttonLabel}</strong> to test adversarial payloads through the gateway.</p>
                     </div>
                 )}
+        </>
+    )
+
+    if (embedded) {
+        return (
+            <div className="red-team-panel red-team-panel-embedded" id="red-team">
+                {content}
             </div>
+        )
+    }
+
+    return (
+        <section className="red-team-panel" id="red-team">
+            <div className="container">{content}</div>
         </section>
     )
 }

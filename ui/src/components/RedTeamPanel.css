@@ -4,8 +4,18 @@
     border-top: 1px solid rgba(255, 60, 60, 0.15);
 }
 
+.red-team-panel-embedded {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
 .rt-header {
     margin-bottom: 2rem;
+}
+
+.red-team-panel-embedded .rt-header {
+    margin-bottom: 1rem;
 }
 
 .rt-title-row {
@@ -19,6 +29,10 @@
     font-size: 1.8rem;
     color: #fff;
     margin: 0;
+}
+
+.red-team-panel-embedded .rt-title-row h2 {
+    font-size: 1.1rem;
 }
 
 .rt-badge-label {
@@ -38,7 +52,6 @@
     line-height: 1.6;
 }
 
-/* Controls */
 .rt-controls {
     display: flex;
     align-items: center;
@@ -72,17 +85,9 @@
 }
 
 .rt-spinner {
-    animation: spin 1s linear infinite;
     display: inline-block;
 }
 
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Summary */
 .rt-summary {
     display: flex;
     align-items: center;
@@ -131,7 +136,17 @@
     color: rgba(255, 255, 255, 0.85);
 }
 
-/* Results table */
+.rt-warning {
+    margin-bottom: 1rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    border-radius: 8px;
+    background: rgba(245, 158, 11, 0.08);
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
 .rt-results {
     display: flex;
     flex-direction: column;
@@ -181,7 +196,6 @@
     color: rgba(255, 255, 255, 0.8);
 }
 
-/* Badges */
 .rt-badge {
     font-size: 0.72rem;
     font-weight: 700;
@@ -214,7 +228,6 @@
     border: 1px solid rgba(243, 156, 18, 0.3);
 }
 
-/* Detail expansion */
 .rt-row-detail {
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     padding: 1rem 1.25rem;
@@ -266,8 +279,8 @@
 
 .rt-empty {
     text-align: center;
-    padding: 3rem;
+    padding: 1.25rem;
     color: rgba(255, 255, 255, 0.3);
     border: 1px dashed rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
+    border-radius: 8px;
 }

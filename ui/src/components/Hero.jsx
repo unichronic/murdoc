@@ -15,26 +15,13 @@ export default function Hero({ setCurrentView }) {
           self-hosted policy runtime with prompt-injection checks, PII
           redaction, guardrail orchestration, and audit records.
         </p>
-        <div className="hero-actions" style={{ marginTop: '2rem' }}>
+        <div className="hero-actions">
           <button
             type="button"
-            onClick={() => setCurrentView('demo')}
-            style={{
-              padding: '0.8rem 2rem',
-              fontSize: '1.1rem',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              background: 'linear-gradient(135deg, var(--accent), #e74c3c)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              transition: 'transform 0.2s',
-              boxShadow: '0 4px 14px rgba(255, 60, 60, 0.3)'
-            }}
-            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+            onClick={() => setCurrentView('console')}
+            className="hero-action"
           >
-            Launch Interactive Demo
+            Open Admin Console
           </button>
         </div>
       </div>

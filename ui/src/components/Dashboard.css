@@ -28,7 +28,7 @@
 }
 
 .stat-value {
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 700;
   color: var(--cyan);
 }
@@ -38,6 +38,62 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.stat-note {
+  font-size: 0.78rem;
+  color: var(--text-soft);
+  line-height: 1.35;
+}
+
+.observability-panel {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.observability-panel h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.observability-panel p {
+  max-width: 680px;
+  margin: 0 0 0.75rem;
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+
+.observability-panel code {
+  display: inline-block;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--cyan);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.observability-links {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 160px;
+}
+
+.observability-links a {
+  color: var(--cyan);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.observability-links a:hover {
+  text-decoration: underline;
 }
 
 .recent-activity {
@@ -97,6 +153,14 @@
 }
 
 @media (max-width: 560px) {
+  .observability-panel {
+    flex-direction: column;
+  }
+
+  .observability-links {
+    min-width: 0;
+  }
+
   .activity-header,
   .activity-item {
     align-items: flex-start;

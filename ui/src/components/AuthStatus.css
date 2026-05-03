@@ -1,0 +1,143 @@
+.auth-status {
+    display: inline-flex;
+    gap: 0.65rem;
+    align-items: center;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.auth-status-card {
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+    padding: 1.4rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.045);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
+}
+
+.auth-status-required {
+    border-color: rgba(245, 158, 11, 0.45);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.auth-status-card.auth-status-required {
+    border-color: rgba(34, 232, 220, 0.35);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.auth-status-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.auth-status-label {
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.auth-status-card .auth-status-label {
+    font-size: 1.1rem;
+}
+
+.auth-status-copy p {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+.auth-status-detail {
+    color: var(--text-soft);
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+.auth-status-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: 0.25rem;
+}
+
+.auth-status-card .auth-status-form {
+    align-items: stretch;
+    flex-direction: column;
+    margin-left: 0;
+}
+
+.auth-status input {
+    width: 160px;
+    min-height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.22);
+    color: var(--text);
+    padding: 0.3rem 0.55rem;
+    font: inherit;
+    font-size: 0.78rem;
+    text-transform: none;
+}
+
+.auth-status-card input {
+    width: 100%;
+    min-height: 42px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    padding: 0.65rem 0.75rem;
+}
+
+.auth-status button {
+    min-height: 28px;
+    border: 1px solid var(--cyan);
+    border-radius: 999px;
+    background: var(--cyan);
+    color: var(--bg);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 0.25rem 0.7rem;
+    cursor: pointer;
+}
+
+.auth-status-card button {
+    min-height: 42px;
+    border-radius: 6px;
+    font-size: 0.92rem;
+}
+
+.auth-status button:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
+
+.auth-status-link {
+    background: transparent !important;
+    color: var(--cyan) !important;
+}
+
+@media (max-width: 760px) {
+    .auth-status {
+        display: flex;
+        width: 100%;
+        align-items: flex-start;
+        border-radius: 8px;
+        flex-direction: column;
+    }
+
+    .auth-status input {
+        width: 100%;
+    }
+
+    .auth-status-form {
+        align-items: stretch;
+        flex-direction: column;
+        width: 100%;
+    }
+}
